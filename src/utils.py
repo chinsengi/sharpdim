@@ -184,7 +184,7 @@ def get_dim(model, dataloader):
         X.requires_grad = True
         logits = model(X).reshape(1,-1)
         grad_x = np.zeros((logits.shape[1], torch.numel(X)))
-        for j in range(model.num_classes):
+        for j in range(logits.shape[1]):
             logit = logits[0][j]
             model.zero_grad()
             grad = torch.autograd.grad(logit, X, retain_graph=True)[0]

@@ -55,9 +55,6 @@ def main():
     train_loader, test_loader = load_data(args.dataset,
                                           args.train_size,
                                           batch_size=args.batch_size)
-    grad_loader = load_data(args.dataset,
-                            args.train_size,
-                            batch_size=1)
     net = load_net(args.network, args.dataset, args.num_classes)
     net = net.to(device)
     optimizer = get_optimizer(net, args)
