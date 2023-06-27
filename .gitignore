@@ -3,3 +3,4 @@ src/models/__pycache__/
 data/
 res/
 .vscode/
+*.png

@@ -9,7 +9,6 @@ from .models.vgg import vgg11, vgg11_big
 from .models.fnn import fnn
 from .models.resnet import resnet
 from .data import load_fmnist,load_cifar10
-from .trainer import accuracy
 from .linalg import eigen_variance, eigen_hessian
 
 def use_gpu(gpu_id: int=0):
@@ -75,6 +74,16 @@ def load_data(dataset, num_train, batch_size):
     else:
         raise ValueError('Dataset %s is not supported'%(dataset))
 
+def accuracy(logits, targets):
+    n = logits.shape[0]
+    if targets.ndimension() == 2:
+        _, y_trues = torch.max(targets,1)
+    else:
+        y_trues = targets 
+    _, y_preds = torch.max(logits,1)
+
+    acc = (y_trues==y_preds).float().sum()*100.0/n 
+    return acc
 
 def get_sharpness(net, criterion, dataloader, n_iters=10, tol=1e-2, verbose=False):
     v = eigen_hessian(net, criterion, dataloader, \
@@ -122,13 +131,17 @@ def eval_output(model, dataloader):
     return X, Y
 
 
-def get_gradW(model, dataloader, ndata, k):
-    '''
+'''
+    get gradient with respect to W
     batch size of dataloader is assumed to be 1
-    '''
+    ndata: number of data points
+    k: order of norm (the inequality in the paper is for k=1)
+'''
+def get_gradW(model, dataloader, ndata, k=1):
     gradW = np.zeros((ndata, model.num_classes))
     for i in range(ndata):
         X, y = next(dataloader)
+        X, y = X.cuda(), y.cuda()
         logits = model(X)
         for j in range(model.num_classes):
             logit = logits[0][j]
@@ -141,17 +154,18 @@ def get_gradW(model, dataloader, ndata, k):
             gradW[i,j] = np.sum(grad**(2*k))
     return (np.sum(gradW) / ndata) ** (1./2/k)
 
-
-def get_gradx(model, dataloader, ndata, k):
-    '''
+'''
     get gradient with respect to x
-    '''
+'''
+def get_gradx(model, dataloader, ndata, k=1):
+    assert(dataloader.batch_size == 1)
     gradx = np.zeros((ndata, model.num_classes))
     for i in range(ndata):
         X, y = next(dataloader)
+        X, y = X.cuda(), y.cuda()
         X.requires_grad = True
-        logits = model(X)
-        for j in range(model.num_classes):
+        logits = model(X).reshape(1,-1) 
+        for j in range(logits.shape[1]):
             logit = logits[0][j]
             model.zero_grad()
             grad = torch.autograd.grad(logit, X, retain_graph=True)[0]
@@ -160,5 +174,25 @@ def get_gradx(model, dataloader, ndata, k):
             gradx[i,j] = np.sum(grad**(2*k))
     return (np.sum(gradx) / ndata) ** (1./2/k)
     
-
+def get_dim(model, dataloader):
+    assert(dataloader.batch_size == 1)
+    ndata = len(dataloader)
+    dim = 0
+    for i in range(ndata):
+        X, y = next(dataloader)
+        X, y = X.cuda(), y.cuda()
+        X.requires_grad = True
+        logits = model(X).reshape(1,-1)
+        grad_x = np.zeros((logits.shape[1], torch.numel(X)))
+        for j in range(model.num_classes):
+            logit = logits[0][j]
+            model.zero_grad()
+            grad = torch.autograd.grad(logit, X, retain_graph=True)[0]
+            grad = grad.cpu().detach().numpy()
+            grad = np.reshape(grad, (-1))
+            grad_x[j,:] = grad
+        sing_val = np.linalg.svd(grad_x, compute_uv=False)
+        eig_val = sing_val**2
+        dim += (np.sum(eig_val)**2/np.sum(eig_val**2))**2
+    return dim / ndata
 

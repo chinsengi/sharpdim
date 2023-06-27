@@ -2,6 +2,7 @@ import os
 import argparse
 import json
 import torch
+import numpy as np
 
 from src.trainer import train
 from src.utils import load_net, load_data, eval_accuracy, save, savefig, use_gpu
@@ -28,7 +29,7 @@ def get_args():
     argparser.add_argument('--momentum', type=float,
                            default='0.0', help='momentum, [0.0]')
     argparser.add_argument('--model_file', 
-                           default='fnn.pkl', help='filename to save the net, fnn.pkl')
+                           default='fashionmnist.pkl', help='filename to save the net, fashionmnist.pkl')
     argparser.add_argument('--train_size', type=int, default= 10000)
     args = argparser.parse_args()
 
@@ -54,6 +55,9 @@ def main():
     train_loader, test_loader = load_data(args.dataset,
                                           args.train_size,
                                           batch_size=args.batch_size)
+    grad_loader = load_data(args.dataset,
+                            args.train_size,
+                            batch_size=1)
     net = load_net(args.network, args.dataset, args.num_classes)
     net = net.to(device)
     optimizer = get_optimizer(net, args)
@@ -63,7 +67,8 @@ def main():
     print(net)
 
     print('===> Start training')
-    train(net, criterion, optimizer, train_loader, args.batch_size, args.n_iters, verbose=True)
+    dim_list = train(net, criterion, optimizer, train_loader, args, args.batch_size, args.n_iters, verbose=True)
+    np.save('res/dim_list.npy', dim_list)
 
     train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
     test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)
@@ -72,6 +77,7 @@ def main():
     print('\t test loss: %.2e, acc: %.2f' % (test_loss, test_accuracy))
 
     save(net, optimizer, 'res/', args.model_file)
+    
 
 
 if __name__ == '__main__':

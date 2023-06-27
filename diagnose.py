@@ -38,11 +38,9 @@ def main():
 
     # load model
     criterion = torch.nn.MSELoss().cuda()
-    train_loader,test_loader = load_data(args.dataset,
-                                         args.num_classes,
-                                         train_per_class=
-                                             args.n_samples_per_class,
-                                         batch_size=1)
+    train_loader, test_loader = load_data(args.dataset,
+                                          args.train_size,
+                                          batch_size=1)
     net = load_net(args.network, args.dataset, args.num_classes)
     net.load_state_dict(torch.load('res/'+args.model_file))
 
