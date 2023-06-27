@@ -193,6 +193,6 @@ def get_dim(model, dataloader):
             grad_x[j,:] = grad
         sing_val = np.linalg.svd(grad_x, compute_uv=False)
         eig_val = sing_val**2
-        dim += (np.sum(eig_val)**2/np.sum(eig_val**2))**2
+        dim += np.sum(eig_val)**2/np.sum(eig_val**2)
     return dim / ndata
 

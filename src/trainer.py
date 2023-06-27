@@ -25,6 +25,7 @@ def train(
         optimizer.step()
 
         dim_list.append(get_dim(model.features, dim_dataloader))
+        # dim_list.append(get_dim(model, dim_dataloader))
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
