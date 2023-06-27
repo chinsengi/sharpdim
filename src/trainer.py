@@ -1,6 +1,8 @@
 import time
 import numpy as np
-from .utils import get_dim, load_data, accuracy
+import logging
+from tqdm import tqdm
+from .utils import get_dim, load_data, accuracy, get_gradW
 
 
 def train(
@@ -17,14 +19,21 @@ def train(
     acc_avg, loss_avg = 0, 0
 
     dim_list = []
-    dim_dataloader, _ = load_data(args.dataset, args.dim_nsample, batch_size=1)
+    sharpness_list = []
+    logvol_list = []
     since = time.time()
-    for iter_now in range(n_iters):
+    logging.info(n_iters)
+    for iter_now in tqdm(range(n_iters)):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
 
-        dim_list.append(get_dim(model.features, dim_dataloader))
+        ntrain = 100
+        dim_dataloader, _ = load_data(args.dataset, ntrain, batch_size=1)
+        dim, log_vol = get_dim(model.features, dim_dataloader, args.dim_nsample)
+        dim_list.append(dim)
+        logvol_list.append(log_vol)
+        sharpness_list.append(get_gradW(model.features, dim_dataloader, ntrain))
         # dim_list.append(get_dim(model, dim_dataloader))
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
@@ -32,12 +41,12 @@ def train(
 
         if iter_now % 200 == 0 and verbose:
             now = time.time()
-            print(
+            logging.info(
                 "%d/%d, took %.0f seconds, train_loss: %.1e, train_acc: %.2f"
                 % (iter_now + 1, n_iters, now - since, loss_avg, acc_avg)
             )
             since = time.time()
-    return dim_list
+    return dim_list, sharpness_list, logvol_list
 
 
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):

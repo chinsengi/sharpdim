@@ -2,42 +2,65 @@ import os
 import argparse
 import json
 import torch
+import logging
 import numpy as np
 
 from src.trainer import train
 from src.utils import load_net, load_data, eval_accuracy, save, savefig, use_gpu
 
 def get_args():
-    argparser = argparse.ArgumentParser(description=__doc__)
-    argparser.add_argument('--gpuid',
-                          default='0,', help='gpu id, [0] ')
-    argparser.add_argument('--dataset', 
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--run', type=str, default='run', help='Path for saving running related data.')
+    parser.add_argument('--run_id', type=str, default='0', help='id used to identify different runs')
+    parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
+
+    parser.add_argument('--dataset', 
                           default='fashionmnist', help='dataset, [fashionmnist] | cifar10, 1dfunction')
-    argparser.add_argument('--network', default='vgg',
+    parser.add_argument('--network', default='vgg',
                            help='network, [vgg] | fnn, resnet')
-    argparser.add_argument('--num_classes', type=int, default=10)
-    argparser.add_argument('--n_samples_per_class', type=int,
+    parser.add_argument('--num_classes', type=int, default=10)
+    parser.add_argument('--n_samples_per_class', type=int,
                            default=500, help='training set size, [1000]')
-    argparser.add_argument('--optimizer', 
+    parser.add_argument('--optimizer', 
                            default='sgd', help='optimizer, [sgd]')
-    argparser.add_argument('--n_iters', type=int,
+    parser.add_argument('--n_iters', type=int,
                            default=10000, help='number of iteration used to train nets, [10000]')
-    argparser.add_argument('--batch_size', type=int,
+    parser.add_argument('--batch_size', type=int,
                            default=16, help='batch size, [100]')
-    argparser.add_argument('--learning_rate', type=float,
+    parser.add_argument('--learning_rate', type=float,
                            default=1e-1, help='learning rate')
-    argparser.add_argument('--momentum', type=float,
+    parser.add_argument('--momentum', type=float,
                            default='0.0', help='momentum, [0.0]')
-    argparser.add_argument('--model_file', 
+    parser.add_argument('--model_file', 
                            default='fashionmnist.pkl', help='filename to save the net, fashionmnist.pkl')
-    argparser.add_argument('--train_size', type=int, default= 10000)
-    argparser.add_argument('--dim_nsample', type=int, default=1, help='number of samples to compute dimension')
-    args = argparser.parse_args()
+    parser.add_argument('--train_size', type=int, default= 10000)
+    parser.add_argument('--dim_nsample', type=int, default=1, help='number of samples to compute dimension')
+    parser.add_argument('--comment', type=str, default='')
+    args = parser.parse_args()
 
-    # os.environ["CUDA_VISIBLE_DEVICES"] = args.gpuid
+    args.log = os.path.join(args.run, args.dataset, 'logs', args.run_id)
+    args.device = use_gpu()
 
-    print('===> Config:')
-    print(json.dumps(vars(args), indent=2))
+    # specify logging configuration
+    level = getattr(logging, args.verbose.upper(), None)
+    if not isinstance(level, int):
+        raise ValueError('level {} not supported'.format(args.verbose))
+
+    if not os.path.exists(args.log):
+        os.makedirs(args.log)
+
+    handler1 = logging.StreamHandler()
+    handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
+    formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
+    handler1.setFormatter(formatter)
+    handler2.setFormatter(formatter)
+    logger = logging.getLogger()
+    logger.addHandler(handler1)
+    logger.addHandler(handler2)
+    logger.setLevel(level)
+
+    logging.info('===> Config:')
+    logging.info(json.dumps(vars(args), indent=2))
     return args
 
 def get_optimizer(net, args):
@@ -51,28 +74,31 @@ def get_optimizer(net, args):
 def main():
     args = get_args()
 
-    device = use_gpu()
+    print(f"Writing log file to {args.log}")
+    logging.info(f"Exp instance id = {os.getpid()}")
+    logging.info(f"Exp comment = {args.comment}")
+    
     criterion = torch.nn.MSELoss()
     train_loader, test_loader = load_data(args.dataset,
                                           args.train_size,
                                           batch_size=args.batch_size)
     net = load_net(args.network, args.dataset, args.num_classes)
-    net = net.to(device)
+    net = net.to(args.device)
     optimizer = get_optimizer(net, args)
-    print(optimizer)
+    logging.info(optimizer)
 
-    print('===> Architecture:')
-    print(net)
+    logging.info('===> Architecture:')
+    logging.info(net)
 
-    print('===> Start training')
+    logging.info('===> Start training')
     dim_list = train(net, criterion, optimizer, train_loader, args, args.batch_size, args.n_iters, verbose=True)
     np.save('res/dim_list.npy', dim_list)
 
     train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
     test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)
-    print('===> Solution: ')
-    print('\t train loss: %.2e, acc: %.2f' % (train_loss, train_accuracy))
-    print('\t test loss: %.2e, acc: %.2f' % (test_loss, test_accuracy))
+    logging.info('===> Solution: ')
+    logging.info('\t train loss: %.2e, acc: %.2f' % (train_loss, train_accuracy))
+    logging.info('\t test loss: %.2e, acc: %.2f' % (test_loss, test_accuracy))
 
     save(net, optimizer, 'res/', args.model_file)
     

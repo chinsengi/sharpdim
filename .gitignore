@@ -5,3 +5,4 @@ res/
 .vscode/
 *.png
 *.out
+run/
