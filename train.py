@@ -23,7 +23,7 @@ def get_args():
     argparser.add_argument('--n_iters', type=int,
                            default=10000, help='number of iteration used to train nets, [10000]')
     argparser.add_argument('--batch_size', type=int,
-                           default=100, help='batch size, [100]')
+                           default=16, help='batch size, [100]')
     argparser.add_argument('--learning_rate', type=float,
                            default=1e-1, help='learning rate')
     argparser.add_argument('--momentum', type=float,

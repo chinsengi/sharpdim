@@ -11,5 +11,6 @@ def plot_dim(dim_list, title, save_path):
     plt.close()
 
 if __name__ == '__main__':
-    dim_list = np.load('res/dim_list.npy')
-    plot_dim(dim_list, 'dimensionality', 'dim_list.png')
+    datafile_name = "dim_list1"
+    dim_list = np.load('res/' + datafile_name + '.npy')
+    plot_dim(dim_list, 'dimensionality', datafile_name + '.png')
