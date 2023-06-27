@@ -17,7 +17,7 @@ def train(
     acc_avg, loss_avg = 0, 0
 
     dim_list = []
-    dim_dataloader, _ = load_data(args.dataset, 10, batch_size=1)
+    dim_dataloader, _ = load_data(args.dataset, args.dim_nsample, batch_size=1)
     since = time.time()
     for iter_now in range(n_iters):
         optimizer.zero_grad()

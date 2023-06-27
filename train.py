@@ -31,6 +31,7 @@ def get_args():
     argparser.add_argument('--model_file', 
                            default='fashionmnist.pkl', help='filename to save the net, fashionmnist.pkl')
     argparser.add_argument('--train_size', type=int, default= 10000)
+    argparser.add_argument('--dim_nsample', type=int, default=1, help='number of samples to compute dimension')
     args = argparser.parse_args()
 
     # os.environ["CUDA_VISIBLE_DEVICES"] = args.gpuid
