@@ -165,7 +165,7 @@ def get_gradW(model, dataloader, ndata, k=1):
             model.zero_grad()
             logit.backward(retain_graph=True)
 
-            grad = [p.grad.detach().numpy() for p in model.parameters()]
+            grad = [p.grad.detach().cpu().numpy() for p in model.parameters()]
             grad = [np.reshape(g, (-1)) for g in grad]
             grad = np.concatenate(grad)
             gradW += np.sum(grad ** (2 * k))

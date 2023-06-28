@@ -30,10 +30,10 @@ def train(
 
         ntrain = 100
         dim_dataloader, _ = load_data(args.dataset, ntrain, batch_size=1)
-        dim, log_vol = get_dim(model.features, dim_dataloader, args.dim_nsample)
+        dim, log_vol = get_dim(model, dim_dataloader, args.dim_nsample)
         dim_list.append(dim)
         logvol_list.append(log_vol)
-        sharpness_list.append(get_gradW(model.features, dim_dataloader, ntrain))
+        sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
         # dim_list.append(get_dim(model, dim_dataloader))
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
