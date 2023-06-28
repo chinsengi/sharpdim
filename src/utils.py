@@ -158,12 +158,11 @@ def get_gradW(model, dataloader, ndata, k=1):
     for i in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
-        logits = model(X)
+        logits = model(X).reshape(1, -1)
         output_dim = logits.shape[1]
         for j in range(output_dim):
             logit = logits[0][j]
             model.zero_grad()
-            logging.debug("logit: %f" % (logit))
             logit.backward(retain_graph=True)
 
             grad = [p.grad.detach().numpy() for p in model.parameters()]
