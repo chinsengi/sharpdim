@@ -33,11 +33,14 @@ def load(path, model, optimizer=None):
         logging.warning("weight file not found, training from scratch")
 
 
-def save(model, optimizer, path, filename):
+def save_model(model, optimizer, path, filename):
     create_dir(path)
     states = [model.state_dict(), optimizer.state_dict()]
     torch.save(states, os.path.join(path, filename))
 
+def save_npy(obj, path, filename):
+    create_dir(path)
+    np.save(os.path.join(path, filename), obj)
 
 def savefig(path="./image", filename="image", format="png"):
     create_dir(path)
