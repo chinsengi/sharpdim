@@ -62,7 +62,7 @@ def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
         E.backward()
 
         loss += E.item()
-        acc += accuracy(logits.data, targets)
+        acc += accuracy(logits, targets)
 
     for p in model.parameters():
         p.grad.data /= n_loads

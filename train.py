@@ -50,9 +50,9 @@ def get_args():
         default=10000,
         help="number of iteration used to train nets, [10000]",
     )
-    parser.add_argument("--batch_size", type=int, default=16, help="batch size, [100]")
+    parser.add_argument("--batch_size", type=int, default=16, help="batch size, [16]")
     parser.add_argument(
-        "--learning_rate", type=float, default=1e-1, help="learning rate"
+        "--learning_rate", type=float, default=1e-2, help="learning rate"
     )
     parser.add_argument("--momentum", type=float, default="0.0", help="momentum, [0.0]")
     parser.add_argument(
@@ -60,7 +60,7 @@ def get_args():
         default="fashionmnist.pkl",
         help="filename to save the net, fashionmnist.pkl",
     )
-    parser.add_argument("--train_size", type=int, default=10000)
+    parser.add_argument("--train_size", type=int, default=30000)
     parser.add_argument(
         "--dim_nsample",
         type=int,
@@ -70,7 +70,7 @@ def get_args():
     parser.add_argument("--comment", type=str, default="")
     args = parser.parse_args()
 
-    args.log = os.path.join(args.run, args.dataset, "logs", args.run_id)
+    args.log = os.path.join(args.run, args.run_id)
     args.device = use_gpu()
 
     # specify logging configuration
@@ -94,7 +94,11 @@ def get_args():
     logger.setLevel(level)
 
     logging.info("===> Config:")
-    logging.info(json.dumps(vars(args), indent=2))
+    config = json.dumps(vars(args), indent=2)
+    logging.info(config)
+    with open(os.path.join(args.log, "config.json"), "w") as f:
+        f.write(config)
+        
     return args
 
 

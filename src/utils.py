@@ -125,7 +125,7 @@ def eval_accuracy(model, criterion, dataloader):
 
         logits = model(inputs)
         loss_t += criterion(logits, targets).item()
-        acc_t += accuracy(logits.data, targets)
+        acc_t += accuracy(logits, targets)
 
     return loss_t / n_batchs, acc_t / n_batchs
 
