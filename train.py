@@ -50,9 +50,9 @@ def get_args():
         default=10000,
         help="number of iteration used to train nets, [10000]",
     )
-    parser.add_argument("--batch_size", type=int, default=16, help="batch size, [16]")
+    parser.add_argument("--batch_size", type=int, default=8, help="batch size, [16]")
     parser.add_argument(
-        "--learning_rate", type=float, default=1e-2, help="learning rate"
+        "--lr", type=float, default=1e-3, help="learning rate"
     )
     parser.add_argument("--momentum", type=float, default="0.0", help="momentum, [0.0]")
     parser.add_argument(
@@ -68,6 +68,7 @@ def get_args():
         help="number of samples to compute dimension",
     )
     parser.add_argument("--comment", type=str, default="")
+    parser.add_argument("--loss", type=str, default="mse", help="loss function, [mse] | cross_entropy")
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.run_id)
@@ -76,7 +77,7 @@ def get_args():
     # specify logging configuration
     level = getattr(logging, args.verbose.upper(), None)
     if not isinstance(level, int):
-        raise ValueError("level {} not supported".format(args.verbose))
+        raise ValueError(f"level {args.verbose} not supported")
 
     if not os.path.exists(args.log):
         os.makedirs(args.log)
@@ -105,10 +106,10 @@ def get_args():
 def get_optimizer(net, args):
     if args.optimizer == "sgd":
         return torch.optim.SGD(
-            net.parameters(), lr=args.learning_rate, momentum=args.momentum
+            net.parameters(), lr=args.lr, momentum=args.momentum
         )
     elif args.optimizer == "adam":
-        return torch.optim.Adam(net.parameters(), lr=args.learning_rate)
+        return torch.optim.Adam(net.parameters(), lr=args.lr)
     else:
         raise ValueError("optimizer %s has not been supported" % (args.optimizer))
 
@@ -120,7 +121,11 @@ def main():
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
 
-    criterion = torch.nn.MSELoss()
+    if args.loss == 'mse':
+        criterion = torch.nn.MSELoss()
+    elif args.loss == 'cross_entropy':
+        criterion = torch.nn.CrossEntropyLoss()
+        
     train_loader, test_loader = load_data(
         args.dataset, args.train_size, batch_size=args.batch_size
     )

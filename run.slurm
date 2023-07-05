@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH --job-name=gen_RNN
-#SBATCH --mail-type=END
+#SBATCH --job-name=sharpdim
+#SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=sc256@uw.edu
 #SBATCH --account=amath
 #SBATCH --partition=gpu-rtx6k 
@@ -14,4 +14,4 @@
 #SBATCH --chdir=.
 #SBATCH --output=./slurm-%j.out
 
-srun --ntasks=1 --gres=gpu:1 python train.py --dataset fashionmnist --n_iters 10000 
+srun --ntasks=1 --gres=gpu:1 python train.py 
