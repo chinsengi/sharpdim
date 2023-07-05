@@ -125,7 +125,7 @@ def main():
         criterion = torch.nn.MSELoss()
     elif args.loss == 'cross_entropy':
         criterion = torch.nn.CrossEntropyLoss()
-        
+
     train_loader, test_loader = load_data(
         args.dataset, args.train_size, batch_size=args.batch_size
     )
@@ -148,9 +148,9 @@ def main():
         args.n_iters,
         verbose=True,
     )
-    save_npy(dim_list, 'res', 'dim_list' + args.run_id)
-    save_npy(sharpness_list, 'res', 'sharpness_list' + args.run_id)
-    save_npy(vol_list, 'res', 'vol_list' + args.run_id)
+    save_npy(dim_list, f'res/{args.run_id}', 'dim_list' + args.run_id)
+    save_npy(sharpness_list, f'res/{args.run_id}', 'sharpness_list' + args.run_id)
+    save_npy(vol_list, f'res/{args.run_id}', 'logvol_list' + args.run_id)
 
     train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
     test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)
