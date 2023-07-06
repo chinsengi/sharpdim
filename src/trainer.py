@@ -39,7 +39,7 @@ def train(
             dim_list.append(dim)
             logvol_list.append(log_vol)
             sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
-            acc_list.append(acc)
+            acc_list.append(acc.item())
         # dim_list.append(get_dim(model, dim_dataloader))
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
