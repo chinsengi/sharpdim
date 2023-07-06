@@ -138,19 +138,18 @@ def main():
     logging.info(net)
 
     logging.info("===> Start training")
-    dim_list, sharpness_list, vol_list = train(
+    dim_list, sharpness_list, vol_list, acc_list = train(
         net,
         criterion,
         optimizer,
         train_loader,
         args,
-        args.batch_size,
-        args.n_iters,
         verbose=True,
     )
     save_npy(dim_list, f'res/{args.run_id}', 'dim_list' + args.run_id)
     save_npy(sharpness_list, f'res/{args.run_id}', 'sharpness_list' + args.run_id)
     save_npy(vol_list, f'res/{args.run_id}', 'logvol_list' + args.run_id)
+    save_npy(acc_list, f'res/{args.run_id}', 'acc_list' + args.run_id)
 
     train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
     test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)

@@ -38,9 +38,11 @@ def save_model(model, optimizer, path, filename):
     states = [model.state_dict(), optimizer.state_dict()]
     torch.save(states, os.path.join(path, filename))
 
+
 def save_npy(obj, path, filename):
     create_dir(path)
     np.save(os.path.join(path, filename), obj)
+
 
 def savefig(path="./image", filename="image", format="png"):
     create_dir(path)
@@ -158,7 +160,7 @@ def eval_output(model, dataloader):
 def get_gradW(model, dataloader, ndata, k=1):
     assert dataloader.batch_size == 1
     gradW = 0
-    for i in range(ndata):
+    for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         logits = model(X).reshape(1, -1)
@@ -172,7 +174,7 @@ def get_gradW(model, dataloader, ndata, k=1):
             grad = [np.reshape(g, (-1)) for g in grad]
             grad = np.concatenate(grad)
             gradW += np.sum(grad ** (2 * k))
-    return (gradW / ndata) ** (1.0 / 2 / k)
+    return (gradW / ndata)
 
 
 """
@@ -195,7 +197,7 @@ def get_gradx(model, dataloader, ndata, k=1):
             grad = grad.detach().numpy()
             grad = np.reshape(grad, (-1))
             gradx += np.sum(grad ** (2 * k))
-    return (gradx / ndata) ** (1.0 / 2 / k)
+    return (gradx / ndata)
 
 
 def get_dim(model, dataloader, ndata):
