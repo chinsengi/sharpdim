@@ -30,15 +30,16 @@ def train(
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
-        scheduler.step(loss)
 
-        ntrain = 100
-        dim_dataloader, _ = load_data(args.dataset, ntrain, batch_size=1)
-        dim, log_vol = get_dim(model, dim_dataloader, args.dim_nsample)
-        dim_list.append(dim)
-        logvol_list.append(log_vol)
-        sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
-        acc_list.append(acc)
+        if (iter_now+1) % 10 == 0:
+            scheduler.step(loss)
+            ntrain = 100
+            dim_dataloader, _ = load_data(args.dataset, ntrain, batch_size=1)
+            dim, log_vol = get_dim(model, dim_dataloader, args.dim_nsample)
+            dim_list.append(dim)
+            logvol_list.append(log_vol)
+            sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
+            acc_list.append(acc)
         # dim_list.append(get_dim(model, dim_dataloader))
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc

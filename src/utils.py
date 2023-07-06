@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch
 import logging
+import random
 from .models.vgg import vgg11, vgg11_big
 from .models.fnn import fnn
 from .models.resnet import resnet
@@ -87,6 +88,16 @@ def load_data(dataset, num_train, batch_size):
         # return load_1dfcn(train_per_class, batch_size)
     else:
         raise ValueError("Dataset %s is not supported" % (dataset))
+
+
+def set_seed(seed):
+    logging.info(f"Set seed: {seed}")
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
 
 
 def accuracy(logits, targets):
@@ -174,7 +185,7 @@ def get_gradW(model, dataloader, ndata, k=1):
             grad = [np.reshape(g, (-1)) for g in grad]
             grad = np.concatenate(grad)
             gradW += np.sum(grad ** (2 * k))
-    return (gradW / ndata)
+    return gradW / ndata
 
 
 """
@@ -197,7 +208,7 @@ def get_gradx(model, dataloader, ndata, k=1):
             grad = grad.detach().numpy()
             grad = np.reshape(grad, (-1))
             gradx += np.sum(grad ** (2 * k))
-    return (gradx / ndata)
+    return gradx / ndata
 
 
 def get_dim(model, dataloader, ndata):

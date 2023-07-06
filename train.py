@@ -5,6 +5,7 @@ import torch
 import logging
 import numpy as np
 import time
+from src.utils import set_seed
 
 from src.trainer import train
 from src.utils import (
@@ -32,7 +33,8 @@ def get_args():
         default="info",
         help="Verbose level: info | debug | warning | critical",
     )
-
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument("--random", action="store_true", help="whether to set random seed")
     parser.add_argument(
         "--dataset",
         default="fashionmnist",
@@ -116,7 +118,8 @@ def get_optimizer(net, args):
 
 def main():
     args = get_args()
-
+    if not args.random:
+        set_seed(args.seed)
     print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
