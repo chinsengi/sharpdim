@@ -184,8 +184,8 @@ def get_gradW(model, dataloader, ndata, k=1):
             grad = [p.grad.detach().cpu().numpy() for p in model.parameters()]
             grad = [np.reshape(g, (-1)) for g in grad]
             grad = np.concatenate(grad)
-            gradW += np.sum(grad ** (2 * k))
-    return gradW / ndata
+            gradW += np.sum(grad ** 2)
+    return np.sqrt(gradW / ndata)
 
 
 """
@@ -230,10 +230,12 @@ def get_dim(model, dataloader, ndata):
             grad_x[j, :] = grad
         sing_val = np.linalg.svd(grad_x, compute_uv=False)
         eig_val = sing_val**2
-        dim += np.sum(eig_val) ** 2 / np.sum(eig_val**2)
-        log_vol += cal_logvol(eig_val)
+        cur_dim = np.sum(eig_val) ** 2 / np.sum(eig_val**2)
+        dim += cur_dim
+        log_vol += cal_logvol(eig_val, cur_dim)
     return dim / ndata, log_vol / ndata
 
 
-def cal_logvol(eig_val):
-    return np.sum(np.log(eig_val)) / 2
+def cal_logvol(eig_val, dim):
+    # return np.sum(np.log(eig_val[:math.floor(dim.item())])) / 2
+    return np.sum(np.log(eig_val[:3])) / 2

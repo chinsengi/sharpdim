@@ -52,7 +52,7 @@ def get_args():
         default=10000,
         help="number of iteration used to train nets, [10000]",
     )
-    parser.add_argument("--batch_size", type=int, default=8, help="batch size, [16]")
+    parser.add_argument("--batch_size", type=int, default=8, help="batch size, [8]")
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="learning rate"
     )
@@ -71,6 +71,7 @@ def get_args():
     )
     parser.add_argument("--comment", type=str, default="")
     parser.add_argument("--loss", type=str, default="mse", help="loss function, [mse] | cross_entropy")
+    parser.add_argument("--use_scheduler", action="store_true", help="whether to use learning rate scheduler")
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.run_id)
@@ -141,7 +142,7 @@ def main():
     logging.info(net)
 
     logging.info("===> Start training")
-    dim_list, sharpness_list, vol_list, acc_list = train(
+    lists = train(
         net,
         criterion,
         optimizer,
@@ -149,10 +150,9 @@ def main():
         args,
         verbose=True,
     )
-    save_npy(dim_list, f'res/{args.run_id}', 'dim_list' + args.run_id)
-    save_npy(sharpness_list, f'res/{args.run_id}', 'sharpness_list' + args.run_id)
-    save_npy(vol_list, f'res/{args.run_id}', 'logvol_list' + args.run_id)
-    save_npy(acc_list, f'res/{args.run_id}', 'acc_list' + args.run_id)
+    save_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list"]
+    for i in range(len(lists)):
+        save_npy(lists[i], f'res/{args.run_id}', save_list[i] + args.run_id)
 
     train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
     test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)

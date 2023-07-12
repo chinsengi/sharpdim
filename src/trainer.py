@@ -31,21 +31,22 @@ def train(
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
 
-        if (iter_now+1) % 10 == 0:
-            scheduler.step(loss)
-            ntrain = 100
+        if (iter_now+1) % 1000 == 0:
+            ntrain = 500
             dim_dataloader, _ = load_data(args.dataset, ntrain, batch_size=1)
             dim, log_vol = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
             sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
-            acc_list.append(acc.item())
+            acc_list.append(acc_avg.item())
         # dim_list.append(get_dim(model, dim_dataloader))
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
 
         if iter_now % 200 == 0 and verbose:
+            if args.use_scheduler:
+                scheduler.step(loss)
             now = time.time()
             logging.info(
                 "%d/%d, took %.0f seconds, train_loss: %.1e, train_acc: %.2f"
