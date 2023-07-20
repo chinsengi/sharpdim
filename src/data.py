@@ -96,7 +96,8 @@ def to_one_hot(labels):
     if labels.ndimension()==1:
         labels.unsqueeze_(1)
     n_samples = labels.shape[0]
-    n_classes = labels.max()+1
+    # n_classes = labels.max()+1
+    n_classes = 10
 
     one_hot_labels = torch.FloatTensor(n_samples,n_classes)
     one_hot_labels.zero_()

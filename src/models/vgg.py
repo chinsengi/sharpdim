@@ -34,7 +34,7 @@ class VGG(nn.Module):
 
 
     def forward(self, x):
-        if x.shape[1]!=1:
+        if x.shape[1]!=1 and x.shape[1]!=3:
             x = x.unsqueeze(1)
         x = self.features(x)
         x = x.view(x.size(0), -1)
