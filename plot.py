@@ -3,6 +3,8 @@ import numpy as np
 from src.utils import create_dir
 import os
 import argparse
+import pandas as pd
+import seaborn as sns
 
 
 def plot_res(res_list, title, save_path, file_name):
@@ -16,6 +18,9 @@ def plot_res(res_list, title, save_path, file_name):
     plt.savefig(os.path.join(save_path, file_name))
     # plt.close()
 
+def construct_df():
+    df = pd.DataFrame(columns=['dim', 'sharpness', 'logvol', 'acc'])
+    return df
 
 def get_args():
     argparser = argparse.ArgumentParser(description=__doc__)

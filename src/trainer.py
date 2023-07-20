@@ -25,6 +25,7 @@ def train(
     acc_list = []
     g_list = []
     eig_list = []
+    loss_list = []
     since = time.time()
     logging.info(n_iters)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, verbose=True)
@@ -41,6 +42,7 @@ def train(
             logvol_list.append(log_vol)
             sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
             acc_list.append(acc_avg.item())
+            loss_list.append(loss_avg.item())
             g_list.append(G)
             eig_list.append(eig_val)
 
@@ -56,7 +58,7 @@ def train(
                 % (iter_now + 1, n_iters, now - since, loss_avg, acc_avg)
             )
             since = time.time()
-    return dim_list, sharpness_list, logvol_list, acc_list, g_list, eig_list
+    return dim_list, sharpness_list, logvol_list, acc_list, g_list, eig_list, loss_list
 
 
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):

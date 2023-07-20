@@ -150,7 +150,7 @@ def main():
         args,
         verbose=True,
     )
-    save_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list", "g_list", "eig_list"]
+    save_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list", "g_list", "eig_list", "loss_list"]
     for i in range(len(lists)):
         save_npy(lists[i], f'res/{args.run_id}', save_list[i] + args.run_id)
 
