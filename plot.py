@@ -9,7 +9,7 @@ def plot_res(res_list, title, save_path, file_name):
     create_dir(save_path)
     plt.figure()
     epoch = np.arange(10, len(res_list) * 10+1, 10)
-    plt.scatter(epoch, res_list, s=0.1)
+    plt.scatter(epoch, res_list, s=1)
     plt.title(title)
     plt.xlabel("iteration")
     # plt.ylabel('dimension')

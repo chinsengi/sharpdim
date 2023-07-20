@@ -196,7 +196,7 @@ def get_gradW(model, dataloader, ndata, k=1):
 def get_gradx(model, dataloader, ndata, k=1):
     assert dataloader.batch_size == 1
     gradx = 0
-    for i in range(ndata):
+    for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True
@@ -215,6 +215,7 @@ def get_dim(model, dataloader, ndata):
     assert dataloader.batch_size == 1
     dim = 0
     log_vol = 0
+    G = 0
     for i in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
@@ -228,12 +229,13 @@ def get_dim(model, dataloader, ndata):
             grad = grad.cpu().detach().numpy()
             grad = np.reshape(grad, (-1))
             grad_x[j, :] = grad
+            G += np.sum(grad ** 2)
         sing_val = np.linalg.svd(grad_x, compute_uv=False)
         eig_val = sing_val**2
         cur_dim = np.sum(eig_val) ** 2 / np.sum(eig_val**2)
         dim += cur_dim
         log_vol += cal_logvol(eig_val, cur_dim)
-    return dim / ndata, log_vol / ndata
+    return dim / ndata, log_vol / ndata, G / ndata
 
 
 def cal_logvol(eig_val, dim):

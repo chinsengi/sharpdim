@@ -3,8 +3,7 @@ import numpy as np
 import logging
 import torch
 from tqdm import tqdm
-from .utils import get_dim, load_data, accuracy, get_gradW
-
+from .utils import get_dim, load_data, accuracy, get_gradW, eval_accuracy
 
 def train(
     model,
@@ -23,10 +22,11 @@ def train(
     sharpness_list = []
     logvol_list = []
     acc_list = []
+    g_list = []
     since = time.time()
     logging.info(n_iters)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, verbose=True)
-    for iter_now in tqdm(range(n_iters)):
+    for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
@@ -34,12 +34,12 @@ def train(
         if (iter_now+1) % 1000 == 0:
             ntrain = 500
             dim_dataloader, _ = load_data(args.dataset, ntrain, batch_size=1)
-            dim, log_vol = get_dim(model, dim_dataloader, args.dim_nsample)
+            dim, log_vol, G = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
             sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
             acc_list.append(acc_avg.item())
-        # dim_list.append(get_dim(model, dim_dataloader))
+            g_list.append(G)
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
@@ -53,7 +53,7 @@ def train(
                 % (iter_now + 1, n_iters, now - since, loss_avg, acc_avg)
             )
             since = time.time()
-    return dim_list, sharpness_list, logvol_list, acc_list
+    return dim_list, sharpness_list, logvol_list, acc_list, g_list
 
 
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):

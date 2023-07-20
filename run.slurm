@@ -14,6 +14,6 @@
 #SBATCH --chdir=.
 #SBATCH --output=./slurm-%j.out
 
-RUNID=1
-srun --ntasks=1 --gres=gpu:1 python train.py --network fnn --dataset fashionmnist --loss mse --run_id $RUNID --n_iters 100000 --lr .1 --batch_size 20
-srun --ntasks=1 --gres=gpu:1 python plot.py --run_id $RUNID
+RUNID=3
+srun --ntasks=1 --gres=gpu:1 python train.py --network vgg --dataset fashionmnist --loss mse --run_id $RUNID --n_iters 1000000 --lr .4 --batch_size 20
+# srun --ntasks=1 --gres=gpu:1 python plot.py --run_id $RUNID
