@@ -235,7 +235,7 @@ def get_dim(model, dataloader, ndata):
         cur_dim = np.sum(eig_val) ** 2 / np.sum(eig_val**2)
         dim += cur_dim
         log_vol += cal_logvol(eig_val, cur_dim)
-    return dim / ndata, log_vol / ndata, G / ndata
+    return dim / ndata, log_vol / ndata, G / ndata, eig_val
 
 
 def cal_logvol(eig_val, dim):
