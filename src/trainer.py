@@ -35,14 +35,13 @@ def train(
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
 
-        if (iter_now+1) % 1000 == 0:
-            ntrain = 500
+        if (iter_now+1) % (len(dataloader)//100) == 0:
             dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
-            sharpness_list.append(get_gradW(model, dim_dataloader, ntrain))
+            sharpness_list.append(get_gradW(model, dim_dataloader, args.dim_nsample))
             acc_list.append(acc_avg.item())
-            loss_list.append(loss_avg.item())
+            loss_list.append(loss_avg)
             g_list.append(G)
             eig_list.append(eig_val)
 

@@ -3,8 +3,7 @@ import argparse
 import json
 import torch
 import logging
-import numpy as np
-import time
+import shutil
 from src.utils import set_seed
 
 from src.trainer import train
@@ -66,7 +65,7 @@ def get_args():
     parser.add_argument(
         "--dim_nsample",
         type=int,
-        default=1,
+        default=20,
         help="number of samples to compute dimension",
     )
     parser.add_argument("--comment", type=str, default="")
@@ -82,6 +81,9 @@ def get_args():
     if not isinstance(level, int):
         raise ValueError(f"level {args.verbose} not supported")
 
+
+    if os.path.exists(args.log):
+        shutil.rmtree(args.log)
     if not os.path.exists(args.log):
         os.makedirs(args.log)
 
@@ -160,7 +162,7 @@ def main():
     logging.info("\t train loss: %.2e, acc: %.2f" % (train_loss, train_accuracy))
     logging.info("\t test loss: %.2e, acc: %.2f" % (test_loss, test_accuracy))
 
-    save_model(net, optimizer, "res/", args.dataset + args.run_id + ".pkl")
+    # save_model(net, optimizer, "res/", args.dataset + args.run_id + ".pkl")
 
 
 if __name__ == "__main__":
