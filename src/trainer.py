@@ -14,7 +14,7 @@ def train(
     args,
     verbose=True,
 ):
-    n_iters = args.n_iters
+    n_iters = args.n_epochs * len(dataloader)
     batch_size = args.batch_size
     model.train()
     acc_avg, loss_avg = 0, 0
@@ -34,7 +34,7 @@ def train(
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
-
+        
         if (iter_now+1) % (len(dataloader)//100) == 0:
             dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)

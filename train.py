@@ -46,10 +46,10 @@ def get_args():
     )
     parser.add_argument("--optimizer", default="sgd", help="optimizer, [sgd]")
     parser.add_argument(
-        "--n_iters",
+        "--n_epochs",
         type=int,
-        default=10000,
-        help="number of iteration used to train nets, [10000]",
+        default=500,
+        help="number of iteration used to train nets, [500]",
     )
     parser.add_argument("--batch_size", type=int, default=8, help="batch size, [8]")
     parser.add_argument(

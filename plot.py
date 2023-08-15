@@ -25,10 +25,12 @@ def plot_res(res_list, title, save_path, file_name):
 
 
 def construct_df(run_ids, dataset, recompute=False):
-    if os.path.exists(f"res/df_{dataset}.csv") and not recompute:
-        return pd.read_csv(f"res/df_{dataset}.csv")
+    if os.path.exists(f"res/df_{dataset}.pkl") and not recompute:
+        return pd.read_pickle(f"res/df_{dataset}.pkl")
     dfs = []
     for run_id in run_ids:
+        if run_id == 5:
+            continue
         # load the json file
         with open(f"run/{run_id}/config.json") as f:
             config = json.load(f)
@@ -74,7 +76,11 @@ def construct_df(run_ids, dataset, recompute=False):
         )
         dfs.append(df)
     dfs = pd.concat(dfs)
-    dfs.to_csv(f"res/df_{dataset}.csv")
+    vars2idxs = ['epoch', 'network', 'dataset', 'iteration', 'lr', 'batch_size']
+    vars2stack = ['train_accuracy', 'train_loss', 'log_volume', 'dimension', 'sharpness', 'log_volume', 'G']
+    dfs = dfs.set_index(vars2idxs)[vars2stack]
+    dfs = dfs.stack().reset_index().rename(columns={0:'value', 'level_'+str(len(vars2idxs)):'variable'})
+    dfs.to_pickle(f"res/df_{dataset}.pkl")
     return dfs
 
 
@@ -95,33 +101,28 @@ if __name__ == "__main__":
     # dataset_list = ["fashionmnist", "cifar10"]
     plot_var_list = ["sharpness", "log_volume","dimension", "G"]
     for i, dataset in enumerate(dataset_list):
-        run_ids = range(0, 24) if dataset == "cifar10" else range(21, 26)
-        df = construct_df(run_ids, dataset, recompute=False)
-        # import pdb; pdb.set_trace()
-        for j, var in enumerate(plot_var_list):
-            ax = axes[i*2, j]
-            # sns.set_theme(style="darkgrid")
-            sns.lineplot(
-                data=df[df["batch_size"] == 20],
-                x="epoch",
-                y=var,
-                hue="lr",
-                err_style="band",
-                ax=ax
-            )
-        for j, var in enumerate(plot_var_list):
-            ax = axes[i*2+1, j]
-            # sns.set_theme(style="darkgrid")
-            sns.lineplot(
-                data=df[df["lr"] == .1],
-                x="epoch",
-                y=var,
-                hue="batch_size",
-                err_style="band",
-                estimator=np.median,
-                ax=ax
-            )
-    savefig('./res/image', "all", format='png')
+        run_ids = range(0, 15) if dataset == "cifar10" else range(21, 26)
+        df = construct_df(run_ids, dataset, recompute=True)
+        # breakpoint()
+        df1 = df[df["batch_size"] == 20]
+        df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
+        df1['pcg_training'] = 100*round(df1['iteration'] / df1['iteration'].max() * 30,1)/30  
+        g = sns.relplot(data=df1, x='pcg_training', y='value', hue='lr', col='variable', kind='line', facet_kws={'sharey':False})
+        sns.despine()
+        for item, ax in g.axes_dict.items():
+            ax.grid(False, axis='x')
+            ax.set_title(item)  
+        savefig('./res/image', "vgg10_cifar_batch20", format='pdf')
+
+        dfs = df[df['lr']==0.1]
+        dfs['iteration_epoch'] = dfs['iteration'] -  dfs['epoch']*100
+        dfs['pcg_training'] = 100*round(dfs['iteration'] / dfs['iteration'].max() * 30,1)/30
+        g = sns.relplot(data=dfs, x='pcg_training', y='value', hue='batch_size', col='variable', kind='line', facet_kws={'sharey':False})
+        sns.despine()
+        for item, ax in g.axes_dict.items():
+            ax.grid(False, axis='x')
+            ax.set_title(item)
+        savefig('./res/image', "vgg10_cifar_lr01", format='pdf')
 
 
     # plot_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list"]
