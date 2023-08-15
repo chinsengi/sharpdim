@@ -5,7 +5,7 @@ import torch
 import logging
 import shutil
 from src.utils import set_seed
-
+import time
 from src.trainer import train
 from src.utils import (
     load_net,
@@ -33,7 +33,9 @@ def get_args():
         help="Verbose level: info | debug | warning | critical",
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed")
-    parser.add_argument("--random", action="store_true", help="whether to set random seed")
+    parser.add_argument(
+        "--random", action="store_true", help="whether to set random seed"
+    )
     parser.add_argument(
         "--dataset",
         default="fashionmnist",
@@ -52,9 +54,7 @@ def get_args():
         help="number of iteration used to train nets, [500]",
     )
     parser.add_argument("--batch_size", type=int, default=8, help="batch size, [8]")
-    parser.add_argument(
-        "--lr", type=float, default=1e-3, help="learning rate"
-    )
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument("--momentum", type=float, default="0.0", help="momentum, [0.0]")
     parser.add_argument(
         "--model_file",
@@ -65,12 +65,18 @@ def get_args():
     parser.add_argument(
         "--dim_nsample",
         type=int,
-        default=20,
+        default=100,
         help="number of samples to compute dimension",
     )
     parser.add_argument("--comment", type=str, default="")
-    parser.add_argument("--loss", type=str, default="mse", help="loss function, [mse] | cross_entropy")
-    parser.add_argument("--use_scheduler", action="store_true", help="whether to use learning rate scheduler")
+    parser.add_argument(
+        "--loss", type=str, default="mse", help="loss function, [mse] | cross_entropy"
+    )
+    parser.add_argument(
+        "--use_scheduler",
+        action="store_true",
+        help="whether to use learning rate scheduler",
+    )
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.run_id)
@@ -80,7 +86,6 @@ def get_args():
     level = getattr(logging, args.verbose.upper(), None)
     if not isinstance(level, int):
         raise ValueError(f"level {args.verbose} not supported")
-
 
     if os.path.exists(args.log):
         shutil.rmtree(args.log)
@@ -104,15 +109,13 @@ def get_args():
     logging.info(config)
     with open(os.path.join(args.log, "config.json"), "w") as f:
         f.write(config)
-        
+
     return args
 
 
 def get_optimizer(net, args):
     if args.optimizer == "sgd":
-        return torch.optim.SGD(
-            net.parameters(), lr=args.lr, momentum=args.momentum
-        )
+        return torch.optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum)
     elif args.optimizer == "adam":
         return torch.optim.Adam(net.parameters(), lr=args.lr)
     else:
@@ -121,20 +124,25 @@ def get_optimizer(net, args):
 
 def main():
     args = get_args()
+
     if not args.random:
+        set_seed(args.seed)
+    else:
+        args.seed = time.time()
         set_seed(args.seed)
     print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
 
-    if args.loss == 'mse':
+    if args.loss == "mse":
         criterion = torch.nn.MSELoss()
-    elif args.loss == 'cross_entropy':
+    elif args.loss == "cross_entropy":
         criterion = torch.nn.CrossEntropyLoss()
 
     train_loader, test_loader = load_data(
         args.dataset, args.train_size, batch_size=args.batch_size
     )
+    args.n_iters = args.n_epochs * len(train_loader)
     net = load_net(args.network, args.dataset, args.num_classes)
     net = net.to(args.device)
     optimizer = get_optimizer(net, args)
@@ -149,12 +157,23 @@ def main():
         criterion,
         optimizer,
         train_loader,
+        test_loader,
         args,
         verbose=True,
     )
-    save_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list", "g_list", "eig_list", "loss_list"]
+    save_list = [
+        "dim_list",
+        "sharpness_list",
+        "logvol_list",
+        "acc_list",
+        "g_list",
+        "eig_list",
+        "loss_list",
+        "test_acc_list",
+        "test_loss_list",
+    ]
     for i in range(len(lists)):
-        save_npy(lists[i], f'res/{args.run_id}', save_list[i] + args.run_id)
+        save_npy(lists[i], f"res/{args.run_id}", save_list[i] + args.run_id)
 
     train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
     test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)

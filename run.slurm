@@ -30,7 +30,7 @@ DATASET="cifar10"
 REPEAT=1
 for i in ${lr[@]}; do
     for ((k = 1; k <= $REPEAT; k++)); do
-        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters 600000 --lr $i --batch_size 20  --random &
+        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_epochs 500 --lr $i --batch_size 20  --random &
         ((RUNID++))
     done
 done
@@ -40,7 +40,7 @@ for j in ${bs[@]}; do
         continue
     fi
     for ((k = 1; k <= $REPEAT; k++)); do
-        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters 600000 --lr .1 --batch_size $j --random &
+        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_epochs 500 --lr .1 --batch_size $j --random &
         ((RUNID++))
     done
 done

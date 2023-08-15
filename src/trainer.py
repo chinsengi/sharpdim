@@ -6,11 +6,13 @@ from tqdm import tqdm
 from .utils import get_dim, load_data, accuracy, get_gradW, eval_accuracy
 from .data import DataLoader
 
+
 def train(
     model,
     criterion,
     optimizer,
     dataloader,
+    test_loader,
     args,
     verbose=True,
 ):
@@ -26,16 +28,25 @@ def train(
     g_list = []
     eig_list = []
     loss_list = []
+    test_acc_list = []
+    test_loss_list = []
+
     since = time.time()
-    logging.info(n_iters)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, verbose=True)
-    dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
+
+    # set up scheduler
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=10, verbose=True
+    )
+
+    # loader for variable estimation
+    dim_dataloader = DataLoader(test_loader.X, test_loader.y, batch_size=1)
+
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
-        
-        if (iter_now+1) % (len(dataloader)//100) == 0:
+
+        if (iter_now + 1) % (len(dataloader) // 30) == 0:
             dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
@@ -44,6 +55,9 @@ def train(
             loss_list.append(loss_avg)
             g_list.append(G)
             eig_list.append(eig_val)
+            test_loss, test_accuracy = eval_accuracy(model, criterion, test_loader)
+            test_acc_list.append(test_accuracy)
+            test_loss_list.append(test_loss)
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
@@ -57,7 +71,17 @@ def train(
                 % (iter_now + 1, n_iters, now - since, loss_avg, acc_avg)
             )
             since = time.time()
-    return dim_list, sharpness_list, logvol_list, acc_list, g_list, eig_list, loss_list
+    return (
+        dim_list,
+        sharpness_list,
+        logvol_list,
+        acc_list,
+        g_list,
+        eig_list,
+        loss_list,
+        test_acc_list,
+        test_loss_list,
+    )
 
 
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
