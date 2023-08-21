@@ -1,11 +1,13 @@
 import os
 import argparse
 import json
+import traceback
 import torch
 import logging
 import shutil
 from src.utils import set_seed
 import time
+import random
 from src.trainer import train
 from src.utils import (
     load_net,
@@ -61,11 +63,11 @@ def get_args():
         default="fashionmnist.pkl",
         help="filename to save the net, fashionmnist.pkl",
     )
-    parser.add_argument("--train_size", type=int, default=30000)
+    parser.add_argument("--train_size", type=int, default=60000)
     parser.add_argument(
         "--dim_nsample",
         type=int,
-        default=100,
+        default=20,
         help="number of samples to compute dimension",
     )
     parser.add_argument("--comment", type=str, default="")
@@ -80,8 +82,13 @@ def get_args():
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.run_id)
-    args.device = use_gpu()
 
+    # use the same args
+    # with open(f"./run/{args.run_id}/config.json") as f:
+    #     args = json.load(f)
+    #     args = argparse.Namespace(**args)
+
+    args.device = use_gpu()
     # specify logging configuration
     level = getattr(logging, args.verbose.upper(), None)
     if not isinstance(level, int):
@@ -104,12 +111,6 @@ def get_args():
     logger.addHandler(handler2)
     logger.setLevel(level)
 
-    logging.info("===> Config:")
-    config = json.dumps(vars(args), indent=2)
-    logging.info(config)
-    with open(os.path.join(args.log, "config.json"), "w") as f:
-        f.write(config)
-
     return args
 
 
@@ -125,10 +126,11 @@ def get_optimizer(net, args):
 def main():
     args = get_args()
 
+    # args.random = False
     if not args.random:
         set_seed(args.seed)
     else:
-        args.seed = time.time()
+        args.seed = random.randint(0,10000)
         set_seed(args.seed)
     print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
@@ -143,6 +145,14 @@ def main():
         args.dataset, args.train_size, batch_size=args.batch_size
     )
     args.n_iters = args.n_epochs * len(train_loader)
+
+    # write config
+    config = json.dumps(vars(args), indent=2)
+    logging.info("===> Config:")
+    logging.info(config)
+    with open(os.path.join(args.log, "config.json"), "w") as f:
+        f.write(config)
+
     net = load_net(args.network, args.dataset, args.num_classes)
     net = net.to(args.device)
     optimizer = get_optimizer(net, args)
@@ -152,35 +162,37 @@ def main():
     logging.info(net)
 
     logging.info("===> Start training")
-    lists = train(
-        net,
-        criterion,
-        optimizer,
-        train_loader,
-        test_loader,
-        args,
-        verbose=True,
-    )
-    save_list = [
-        "dim_list",
-        "sharpness_list",
-        "logvol_list",
-        "acc_list",
-        "g_list",
-        "eig_list",
-        "loss_list",
-        "test_acc_list",
-        "test_loss_list",
-    ]
-    for i in range(len(lists)):
-        save_npy(lists[i], f"res/{args.run_id}", save_list[i] + args.run_id)
+    try:
+        lists = train(
+            net,
+            criterion,
+            optimizer,
+            train_loader,
+            test_loader,
+            args,
+            verbose=True,
+        )
+        save_list = [
+            "dim_list",
+            "sharpness_list",
+            "logvol_list",
+            "acc_list",
+            "g_list",
+            "eig_list",
+            "loss_list",
+            "test_acc_list",
+            "test_loss_list",
+        ]
+        for i in range(len(lists)):
+            save_npy(lists[i], f"res/{args.run_id}", save_list[i] + args.run_id)
 
-    train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
-    test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)
-    logging.info("===> Solution: ")
-    logging.info("\t train loss: %.2e, acc: %.2f" % (train_loss, train_accuracy))
-    logging.info("\t test loss: %.2e, acc: %.2f" % (test_loss, test_accuracy))
-
+        train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
+        test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)
+        logging.info("===> Solution: ")
+        logging.info("\t train loss: %.2e, acc: %.2f" % (train_loss, train_accuracy))
+        logging.info("\t test loss: %.2e, acc: %.2f" % (test_loss, test_accuracy))
+    except:
+        logging.error(traceback.format_exc())
     # save_model(net, optimizer, "res/", args.dataset + args.run_id + ".pkl")
 
 

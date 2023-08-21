@@ -40,7 +40,7 @@ def construct_df(run_ids, dataset, recompute=False):
             "logvol_list",
             "acc_list",
             "g_list",
-            # "eig_list",
+            "eig_list",
             "loss_list",
         ]
         data = {}
@@ -48,14 +48,14 @@ def construct_df(run_ids, dataset, recompute=False):
             data[list_name] = np.load(
                 f"res/{run_id}/" + list_name + str(run_id) + ".npy"
             )
-            # if list_name != "eig_list":
-            #     data[list_name] = savgol_filter(data[list_name], 51, 3)
-        train_size = 30000 if config["dataset"] == "fashionmnist" else 10000
+        train_size = 60000 if config["dataset"] == "fashionmnist" else 10000
         batch_size = config["batch_size"]
         n_iter_per_epoch = train_size // batch_size
         list_len = len(data["dim_list"])
+        print(f"batch_size: {config['batch_size']}, list_len: {list_len}")
         sample_freq = config["n_iters"] / list_len
-        # import pdb; pdb.set_trace()
+        # if run_id ==50:
+        #     breakpoint()
         df = pd.DataFrame(
             {
                 "run_id": run_id,
@@ -72,16 +72,17 @@ def construct_df(run_ids, dataset, recompute=False):
                 "train_accuracy": data["acc_list"],
                 "train_loss": data["loss_list"],
                 "G": data["g_list"],
+                "eig": data["eig_list"].tolist(),
             }
         )
         dfs.append(df)
     dfs = pd.concat(dfs)
     vars2idxs = ['epoch', 'network', 'dataset', 'iteration', 'lr', 'batch_size']
     vars2stack = ['train_accuracy', 'train_loss', 'log_volume', 'dimension', 'sharpness', 'log_volume', 'G']
-    dfs = dfs.set_index(vars2idxs)[vars2stack]
-    dfs = dfs.stack().reset_index().rename(columns={0:'value', 'level_'+str(len(vars2idxs)):'variable'})
+    df = dfs.set_index(vars2idxs)[vars2stack]
+    df = df.stack().reset_index().rename(columns={0:'value', 'level_'+str(len(vars2idxs)):'variable'})
     dfs.to_pickle(f"res/df_{dataset}.pkl")
-    return dfs
+    return df
 
 
 def get_args():
@@ -101,28 +102,28 @@ if __name__ == "__main__":
     # dataset_list = ["fashionmnist", "cifar10"]
     plot_var_list = ["sharpness", "log_volume","dimension", "G"]
     for i, dataset in enumerate(dataset_list):
-        run_ids = range(0, 15) if dataset == "cifar10" else range(21, 26)
+        run_ids = [i for i in range(10)] + [10 + 5*i for i in range(2)] + [50] if dataset == "cifar10" else range(21, 26)
         df = construct_df(run_ids, dataset, recompute=True)
-        # breakpoint()
+        breakpoint()
         df1 = df[df["batch_size"] == 20]
-        df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
+        # df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
         df1['pcg_training'] = 100*round(df1['iteration'] / df1['iteration'].max() * 30,1)/30  
         g = sns.relplot(data=df1, x='pcg_training', y='value', hue='lr', col='variable', kind='line', facet_kws={'sharey':False})
         sns.despine()
         for item, ax in g.axes_dict.items():
             ax.grid(False, axis='x')
             ax.set_title(item)  
-        savefig('./res/image', "vgg10_cifar_batch20", format='pdf')
+        savefig('./res/image', "vgg10_cifar_batch20", format='png')
 
         dfs = df[df['lr']==0.1]
-        dfs['iteration_epoch'] = dfs['iteration'] -  dfs['epoch']*100
+        # dfs['iteration_epoch'] = dfs['iteration'] -  dfs['epoch']*100
         dfs['pcg_training'] = 100*round(dfs['iteration'] / dfs['iteration'].max() * 30,1)/30
         g = sns.relplot(data=dfs, x='pcg_training', y='value', hue='batch_size', col='variable', kind='line', facet_kws={'sharey':False})
         sns.despine()
         for item, ax in g.axes_dict.items():
             ax.grid(False, axis='x')
             ax.set_title(item)
-        savefig('./res/image', "vgg10_cifar_lr01", format='pdf')
+        savefig('./res/image', "vgg10_cifar_lr01", format='png')
 
 
     # plot_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list"]

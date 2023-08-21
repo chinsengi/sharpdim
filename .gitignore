@@ -6,3 +6,5 @@ res/
 *.png
 *.out
 run/
+*.ipynb
+.ipynb_checkpoints/

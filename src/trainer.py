@@ -39,14 +39,14 @@ def train(
     )
 
     # loader for variable estimation
-    dim_dataloader = DataLoader(test_loader.X, test_loader.y, batch_size=1)
-
+    # dim_dataloader = DataLoader(test_loader.X, test_loader.y, batch_size=1)
+    dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
 
-        if (iter_now + 1) % (len(dataloader) // 30) == 0:
+        if (iter_now + 1) % (len(dataloader) // 100) == 0:
             dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
@@ -56,7 +56,7 @@ def train(
             g_list.append(G)
             eig_list.append(eig_val)
             test_loss, test_accuracy = eval_accuracy(model, criterion, test_loader)
-            test_acc_list.append(test_accuracy)
+            test_acc_list.append(test_accuracy.item())
             test_loss_list.append(test_loss)
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
