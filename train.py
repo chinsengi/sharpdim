@@ -45,14 +45,11 @@ def get_args():
     )
     parser.add_argument("--network", default="vgg", help="network, [vgg] | fnn, resnet")
     parser.add_argument("--num_classes", type=int, default=10)
-    parser.add_argument(
-        "--n_samples_per_class", type=int, default=500, help="training set size, [1000]"
-    )
     parser.add_argument("--optimizer", default="sgd", help="optimizer, [sgd]")
     parser.add_argument(
         "--n_epochs",
         type=int,
-        default=500,
+        default=350,
         help="number of iteration used to train nets, [500]",
     )
     parser.add_argument("--batch_size", type=int, default=8, help="batch size, [8]")
@@ -79,6 +76,9 @@ def get_args():
         action="store_true",
         help="whether to use learning rate scheduler",
     )
+    parser.add_argument("--cal_freq", type=int, default=100, help="how many data points within per epoch")
+    parser.add_argument("--hard_sample", action="store_true", help="whether to use hard samples to compute dimension")
+    parser.add_argument("--test_sample", action="store_true", help="whether to use test samples to compute dimension")
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.run_id)
@@ -186,8 +186,8 @@ def main():
         for i in range(len(lists)):
             save_npy(lists[i], f"res/{args.run_id}", save_list[i] + args.run_id)
 
-        train_loss, train_accuracy = eval_accuracy(net, criterion, train_loader)
-        test_loss, test_accuracy = eval_accuracy(net, criterion, test_loader)
+        train_loss, train_accuracy, _ = eval_accuracy(net, criterion, train_loader)
+        test_loss, test_accuracy, _ = eval_accuracy(net, criterion, test_loader)
         logging.info("===> Solution: ")
         logging.info("\t train loss: %.2e, acc: %.2f" % (train_loss, train_accuracy))
         logging.info("\t test loss: %.2e, acc: %.2f" % (test_loss, test_accuracy))

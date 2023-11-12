@@ -24,8 +24,6 @@ RUNID=50
 # DATASET="fashionmnist"
 NETWORK="vgg"
 DATASET="cifar10"
-srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id 50 --n_epochs 500 --lr .075 --batch_size 20  --random &
-# srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id 9 --n_epochs 500 --lr .1 --batch_size 32  --random &
+# srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id 52 --n_epochs 300 --lr .1 --batch_size 20  --cal_freq 30 --random &
+srun --ntasks=1 --gres=gpu:1 python train.py --network vgg --dataset cifar10 --loss mse --run_id 76 --n_epochs 350 --lr .1 --batch_size 20 --cal_freq 50 --test_sample
     
-
-wait

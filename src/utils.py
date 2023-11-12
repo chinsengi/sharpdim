@@ -10,7 +10,7 @@ import random
 from .models.vgg import vgg11, vgg11_big
 from .models.fnn import fnn
 from .models.resnet import resnet
-from .data import load_fmnist, load_cifar10
+from .data import DataLoader, load_fmnist, load_cifar10
 from .linalg import eigen_variance, eigen_hessian
 
 
@@ -45,10 +45,13 @@ def save_npy(obj, path, filename):
     np.save(os.path.join(path, filename), obj)
 
 
-def savefig(path="./image", filename="image", format="png"):
+def savefig(path="./image", filename="image", format="png", include_timestamp=True):
     create_dir(path)
-    t = time.localtime()
-    current_time = time.strftime("%H:%M:%S", t)
+    if include_timestamp:
+        t = time.localtime()
+        current_time = time.strftime("%H:%M:%S", t)
+    else:
+        current_time = ""
     plt.savefig(
         os.path.join(path, current_time + filename + "." + format),
         dpi=300,
@@ -100,7 +103,7 @@ def set_seed(seed):
     random.seed(seed)
 
 
-def accuracy(logits, targets):
+def accuracy(logits, targets, index=False):
     n = logits.shape[0]
     if targets.ndimension() == 2:
         _, y_trues = torch.max(targets, 1)
@@ -109,7 +112,11 @@ def accuracy(logits, targets):
     _, y_preds = torch.max(logits, 1)
 
     acc = (y_trues == y_preds).float().sum() * 100.0 / n
-    return acc
+
+    if index:
+        return acc, (y_trues == y_preds)
+    else:
+        return acc
 
 
 def get_sharpness(net, criterion, dataloader, n_iters=10, tol=1e-2, verbose=False):
@@ -126,21 +133,36 @@ def get_nonuniformity(net, criterion, dataloader, n_iters=10, tol=1e-2, verbose=
     return math.sqrt(v)
 
 
-def eval_accuracy(model, criterion, dataloader):
+def eval_accuracy(model, criterion, dataloader, hard_sample=False):
     model.eval()
     n_batchs = len(dataloader)
     dataloader.idx = 0
 
     loss_t, acc_t = 0.0, 0.0
+    hard_samples = []
+    hard_targets = []
     for i in range(n_batchs):
         inputs, targets = next(dataloader)
         inputs, targets = inputs.cuda(), targets.cuda()
 
         logits = model(inputs)
-        loss_t += criterion(logits, targets).item()
-        acc_t += accuracy(logits, targets)
+        acc, correct_index = accuracy(logits, targets, index=True)
+        if hard_sample:
+            if logits[~correct_index].shape[0] > 0:
+                loss_t += criterion(logits[~correct_index], targets[~correct_index]).item()
+        else:
+            loss_t += criterion(logits, targets).item()
+        acc_t += acc.item()
+        hard_samples.append(inputs[~correct_index])
+        hard_targets.append(targets[~correct_index])
 
-    return loss_t / n_batchs, acc_t / n_batchs
+    hard_samples = torch.cat(hard_samples, dim=0)
+    hard_targets = torch.cat(hard_targets, dim=0)
+    if hard_sample:
+        hard_sample_loader = DataLoader(hard_samples, hard_targets, batch_size=1)
+        return loss_t / n_batchs, acc_t / n_batchs, hard_sample_loader
+    else:
+        return loss_t / n_batchs, acc_t / n_batchs, DataLoader(dataloader.X, dataloader.y, batch_size=1)
 
 
 def eval_output(model, dataloader):
@@ -216,7 +238,7 @@ def get_dim(model, dataloader, ndata):
     dim = 0
     log_vol = 0
     G = 0
-    for i in range(ndata):
+    for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True

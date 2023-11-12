@@ -8,3 +8,6 @@ res/
 run/
 *.ipynb
 .ipynb_checkpoints/
+*.sh
+*.slurm
+image/

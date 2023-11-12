@@ -38,15 +38,22 @@ def train(
         optimizer, mode="min", patience=10, verbose=True
     )
 
-    # loader for variable estimation
-    # dim_dataloader = DataLoader(test_loader.X, test_loader.y, batch_size=1)
-    dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
 
-        if (iter_now + 1) % (len(dataloader) // 100) == 0:
+        acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
+        loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
+        
+        if (iter_now + 1) % (len(dataloader) // args.cal_freq) == 0:
+            if args.test_sample:
+                test_loss, test_accuracy, dim_dataloader = eval_accuracy(model, criterion, test_loader, hard_sample=args.hard_sample)
+            else:
+                dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
+                test_loss, test_accuracy, _ = eval_accuracy(model, criterion, test_loader)
+            test_acc_list.append(test_accuracy)
+            test_loss_list.append(test_loss)
             dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
@@ -55,12 +62,7 @@ def train(
             loss_list.append(loss_avg)
             g_list.append(G)
             eig_list.append(eig_val)
-            test_loss, test_accuracy = eval_accuracy(model, criterion, test_loader)
-            test_acc_list.append(test_accuracy.item())
-            test_loss_list.append(test_loss)
 
-        acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
-        loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
 
         if iter_now % 200 == 0 and verbose:
             if args.use_scheduler:
@@ -87,7 +89,7 @@ def train(
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
     loss, acc = 0, 0
     n_loads = batch_size // dataloader.batch_size
-
+    assert(n_loads==1)
     for i in range(n_loads):
         inputs, targets = next(dataloader)
         inputs, targets = inputs.cuda(), targets.cuda()
