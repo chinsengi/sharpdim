@@ -34,7 +34,7 @@ def construct_df(run_ids, dataset, recompute=False):
             if run_id == 5:
                 continue
             # load the json file
-            with open(f"run/{run_id}/config.json") as f:
+            with open(f"run/{dataset}/{run_id}/config.json") as f:
                 config = json.load(f)
             data_list = [
                 "dim_list",
@@ -61,7 +61,7 @@ def construct_df(run_ids, dataset, recompute=False):
             print(
                 f"batch_size: {config['batch_size']}, lr: {config['lr']}, list_len: {list_len}"
             )
-            sample_freq = config["n_iters"] // list_len
+            sample_freq = config["cal_freq"] 
             df = pd.DataFrame(
                 {
                     "run_id": run_id,
@@ -70,7 +70,7 @@ def construct_df(run_ids, dataset, recompute=False):
                     "lr": config["lr"],
                     "batch size": config["batch_size"],
                     "n_iters": config["n_iters"],
-                    "epoch": np.arange(list_len) * sample_freq // n_iter_per_epoch,
+                    "epoch": (np.arange(list_len) * sample_freq)// (n_iter_per_epoch),
                     "iteration": np.arange(list_len) * sample_freq,
                     "Log local dimension": np.log(data["dim_list"]),
                     "Sharpness": data["sharpness_list"],
@@ -108,11 +108,12 @@ def construct_df(run_ids, dataset, recompute=False):
 
 if __name__ == "__main__":
     # plt.style.use('science')
+    # dataset_list = ["fashionmnist"]
     dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
-        run_ids = [i for i in range(0, 20)] + [i for i in range(53, 73)] if dataset == "cifar10" else range(21, 26)
-        # run_ids = [75, 76]
+        # run_ids = [i for i in range(0, 20)] + [i for i in range(53, 73)] if dataset == "cifar10" else range(21, 26)
+        run_ids = [i for i in range(11,21)]
         print(f"run_ids to plot: {run_ids}")
         df = construct_df(run_ids, dataset, recompute=True)
         # breakpoint()
@@ -120,7 +121,8 @@ if __name__ == "__main__":
         # df1 = df1[df1["lr"] != 0.075]
         # df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
         df1['iteration (x1000)'] = df1['iteration'] //1000
-        df1 = df1[df1["iteration (x1000)"] <= 200]
+        # df1 = df1[df1["iteration (x1000)"] <= 200]
+        # breakpoint()
         sns.set(font_scale=3)
         sns.set_style("whitegrid")
         g = sns.relplot(
@@ -137,14 +139,14 @@ if __name__ == "__main__":
             aspect=1.4
             # errorbar="sd"
         )
-        # sns.despine()
+        sns.despine()
         for item, ax in g.axes_dict.items():
             ax.grid(False)
             ax.set_title(item)
-            if item =="Log local dimension":
-                ax.set_ylim(0, .5)
-            if item =='Test accuracy':
-                ax.set_ylim(92, 96)
+            # if item =="Log local dimension":
+            #     ax.set_ylim(0, .5)
+            # if item =='Test accuracy':
+            #     ax.set_ylim(85, 91)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
@@ -152,13 +154,13 @@ if __name__ == "__main__":
         ax = plt.gca()
 
         savefig(
-            "./image", "vgg10_cifar_batch20", format="pdf", include_timestamp=True
+            "./image", f"{dataset}_batch20", format="pdf", include_timestamp=True
         )
 
         df2 = df[df["lr"] == 0.1]
         # breakpoint()
         df2['iteration (x1000)'] = df2['iteration'] //1000
-        df2 = df2[df2["iteration (x1000)"] <= 100]
+        # df2 = df2[df2["iteration (x1000)"] <= 100]
         g = sns.relplot(
             data=df2,
             x="iteration (x1000)",
@@ -174,20 +176,20 @@ if __name__ == "__main__":
             aspect=1.4
             # errorbar="sd"
         )
-        # sns.despine()
+        sns.despine()
         for item, ax in g.axes_dict.items():
             ax.grid(False)
             ax.set_title(item)
-            if item =="Log local dimension":
-                ax.set_ylim(0, .5)
-            if item =='Test accuracy':
-                ax.set_ylim(92, 96)
+            # if item =="Log local dimension":
+            #     ax.set_ylim(0, .5)
+            # if item =='Test accuracy':
+            #     ax.set_ylim(85, 91)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
             ax.spines['bottom'].set_linewidth(1.0) 
         savefig(
-            "./image", "vgg10_cifar_lr01", format="pdf", include_timestamp=True
+            "./image", f"{dataset}_lr01", format="pdf", include_timestamp=True
         )
 
     # plot_list = ["dim_list", "sharpness_list", "logvol_list", "acc_list"]

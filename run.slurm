@@ -8,28 +8,29 @@
 #SBATCH --partition=gpu-rtx6k
 # SBATCH --partition=gpu-2080ti
 # SBATCH --partition=ckpt
-#SBATCH --nodes=2
+#SBATCH --nodes=5
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
-#SBATCH --time=7-00:00:00
+#SBATCH --time=10:00:00
 
 #SBATCH --chdir=.
 #SBATCH --output=./slurm_out/slurm-%j.out
 
-# declare -a lr=(".05" ".1" ".2")
-# declare -a bs=("8" "20" "32")
+declare -a lr=(".05" ".1" ".2")
+declare -a bs=("8" "20" "32")
 # declare -a lr=(".1")
-declare -a bs=("32")
+# declare -a bs=("32")
 
-RUNID=73
+RUNID=11
 # NETWORK="fnn"
 # DATASET="fashionmnist"
 NETWORK="vgg"
 DATASET="cifar10"
+N_ITERS="200000"
 REPEAT=2
 for ((k = 1; k <= $REPEAT; k++)); do
     for i in ${lr[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_epochs 350 --lr $i --batch_size 20  --random --cal_freq 50 &
+        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters $N_ITERS --lr $i --batch_size 20  --random --cal_freq 50 &
         ((RUNID++))
     done
 
@@ -37,7 +38,7 @@ for ((k = 1; k <= $REPEAT; k++)); do
         if [ "$j" = "20" ]; then
             continue
         fi
-        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_epochs 350 --lr .1 --batch_size $j --random --cal_freq 50 &
+        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters $N_ITERS --lr .1 --batch_size $j --random --cal_freq 50 &
         ((RUNID++))
     done
 done

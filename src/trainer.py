@@ -16,7 +16,7 @@ def train(
     args,
     verbose=True,
 ):
-    n_iters = args.n_epochs * len(dataloader)
+    n_iters = args.n_iters
     batch_size = args.batch_size
     model.train()
     acc_avg, loss_avg = 0, 0
@@ -38,6 +38,7 @@ def train(
         optimizer, mode="min", patience=10, verbose=True
     )
 
+    dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
@@ -46,25 +47,29 @@ def train(
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
         
-        if (iter_now + 1) % (len(dataloader) // args.cal_freq) == 0:
+        if (iter_now + 1) % args.cal_freq == 0:
             if args.test_sample:
                 test_loss, test_accuracy, dim_dataloader = eval_accuracy(model, criterion, test_loader, hard_sample=args.hard_sample)
             else:
-                dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
                 test_loss, test_accuracy, _ = eval_accuracy(model, criterion, test_loader)
+            # test loss and accuracy
             test_acc_list.append(test_accuracy)
             test_loss_list.append(test_loss)
+
+            # calculate dimension, log volume, G and eigenvalues. 
             dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
             dim_list.append(dim)
             logvol_list.append(log_vol)
-            sharpness_list.append(get_gradW(model, dim_dataloader, args.dim_nsample))
-            acc_list.append(acc_avg.item())
-            loss_list.append(loss_avg)
             g_list.append(G)
             eig_list.append(eig_val)
 
+            # calculate sharpness
+            sharpness_list.append(get_gradW(model, dim_dataloader, args.dim_nsample))
+            acc_list.append(acc_avg.item())
+            loss_list.append(loss_avg)
 
-        if iter_now % 200 == 0 and verbose:
+
+        if iter_now % 1000 == 0 and verbose:
             if args.use_scheduler:
                 scheduler.step(loss)
             now = time.time()

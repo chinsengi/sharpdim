@@ -47,10 +47,10 @@ def get_args():
     parser.add_argument("--num_classes", type=int, default=10)
     parser.add_argument("--optimizer", default="sgd", help="optimizer, [sgd]")
     parser.add_argument(
-        "--n_epochs",
+        "--n_iters",
         type=int,
-        default=350,
-        help="number of iteration used to train nets, [500]",
+        default=150000,
+        help="number of iteration used to train nets, [150000]",
     )
     parser.add_argument("--batch_size", type=int, default=8, help="batch size, [8]")
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
@@ -81,7 +81,7 @@ def get_args():
     parser.add_argument("--test_sample", action="store_true", help="whether to use test samples to compute dimension")
     args = parser.parse_args()
 
-    args.log = os.path.join(args.run, args.run_id)
+    args.log = os.path.join(args.run, args.dataset, args.run_id)
 
     # use the same args
     # with open(f"./run/{args.run_id}/config.json") as f:
@@ -144,7 +144,7 @@ def main():
     train_loader, test_loader = load_data(
         args.dataset, args.train_size, batch_size=args.batch_size
     )
-    args.n_iters = args.n_epochs * len(train_loader)
+    # args.n_iters = args.n_epochs * len(train_loader)
 
     # write config
     config = json.dumps(vars(args), indent=2)
