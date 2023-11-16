@@ -161,6 +161,7 @@ def main():
     logging.info("===> Architecture:")
     logging.info(net)
 
+    
     logging.info("===> Start training")
     try:
         lists = train(
@@ -184,7 +185,7 @@ def main():
             "test_loss_list",
         ]
         for i in range(len(lists)):
-            save_npy(lists[i], f"res/{args.run_id}", save_list[i] + args.run_id)
+            save_npy(lists[i], f"res/{args.dataset}/{args.run_id}", save_list[i] + args.run_id)
 
         train_loss, train_accuracy, _ = eval_accuracy(net, criterion, train_loader)
         test_loss, test_accuracy, _ = eval_accuracy(net, criterion, test_loader)

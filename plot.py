@@ -50,10 +50,8 @@ def construct_df(run_ids, dataset, recompute=False):
             data = {}
             for list_name in data_list:
                 data[list_name] = np.load(
-                    f"res/{run_id}/" + list_name + str(run_id) + ".npy"
+                    f"res/{dataset}/{run_id}/" + list_name + str(run_id) + ".npy"
                 )
-            # if config['lr']==0.1:
-            #     breakpoint()
             train_size = 60000 if config["dataset"] == "fashionmnist" else 10000
             batch_size = config["batch_size"]
             n_iter_per_epoch = math.ceil(train_size / batch_size)
@@ -108,12 +106,12 @@ def construct_df(run_ids, dataset, recompute=False):
 
 if __name__ == "__main__":
     # plt.style.use('science')
-    # dataset_list = ["fashionmnist"]
-    dataset_list = ["cifar10"]
+    dataset_list = ["fashionmnist"]
+    # dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
         # run_ids = [i for i in range(0, 20)] + [i for i in range(53, 73)] if dataset == "cifar10" else range(21, 26)
-        run_ids = [i for i in range(11,21)]
+        run_ids = [i for i in range(0,10)]
         print(f"run_ids to plot: {run_ids}")
         df = construct_df(run_ids, dataset, recompute=True)
         # breakpoint()
@@ -143,10 +141,10 @@ if __name__ == "__main__":
         for item, ax in g.axes_dict.items():
             ax.grid(False)
             ax.set_title(item)
-            # if item =="Log local dimension":
-            #     ax.set_ylim(0, .5)
-            # if item =='Test accuracy':
-            #     ax.set_ylim(85, 91)
+            if item =="Log local dimension":
+                ax.set_ylim(0, 1)
+            if item =='Test accuracy':
+                ax.set_ylim(88, 92)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
@@ -180,10 +178,10 @@ if __name__ == "__main__":
         for item, ax in g.axes_dict.items():
             ax.grid(False)
             ax.set_title(item)
-            # if item =="Log local dimension":
-            #     ax.set_ylim(0, .5)
-            # if item =='Test accuracy':
-            #     ax.set_ylim(85, 91)
+            if item =="Log local dimension":
+                ax.set_ylim(0, 1)
+            if item =='Test accuracy':
+                ax.set_ylim(88, 92)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
