@@ -183,6 +183,11 @@ def main():
             "loss_list",
             "test_acc_list",
             "test_loss_list",
+            "W_list",
+            "quad_list",
+            "gradW_list",
+            "A_list",
+            "B_list",
         ]
         for i in range(len(lists)):
             save_npy(lists[i], f"res/{args.dataset}/{args.run_id}", save_list[i] + args.run_id)
@@ -194,7 +199,7 @@ def main():
         logging.info("\t test loss: %.2e, acc: %.2f" % (test_loss, test_accuracy))
     except:
         logging.error(traceback.format_exc())
-    # save_model(net, optimizer, "res/", args.dataset + args.run_id + ".pkl")
+    save_model(net, optimizer, "res/models/", args.dataset + args.run_id + ".pkl")
 
 
 if __name__ == "__main__":

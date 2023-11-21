@@ -52,6 +52,8 @@ def construct_df(run_ids, dataset, recompute=False):
                 data[list_name] = np.load(
                     f"res/{dataset}/{run_id}/" + list_name + str(run_id) + ".npy"
                 )
+            # if config['lr']==0.1:
+            #     breakpoint()
             train_size = 60000 if config["dataset"] == "fashionmnist" else 10000
             batch_size = config["batch_size"]
             n_iter_per_epoch = math.ceil(train_size / batch_size)
@@ -110,22 +112,26 @@ if __name__ == "__main__":
     # dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
-        # run_ids = [i for i in range(0, 20)] + [i for i in range(53, 73)] if dataset == "cifar10" else range(21, 26)
-        run_ids = [i for i in range(0,10)]
+        # run_ids = [i for i in range(1,11)]
+        run_ids = (
+            [i for i in range(12, 32)]
+            if dataset == "fashionmnist"
+            else [i for i in range(10, 30)]
+        )
         print(f"run_ids to plot: {run_ids}")
         df = construct_df(run_ids, dataset, recompute=True)
         # breakpoint()
         df1 = df[df["batch size"] == 20]
         # df1 = df1[df1["lr"] != 0.075]
         # df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
-        df1['iteration (x1000)'] = df1['iteration'] //1000
+        df1['iteration (x5000)'] = df1['iteration'] //5000
         # df1 = df1[df1["iteration (x1000)"] <= 200]
         # breakpoint()
         sns.set(font_scale=3)
         sns.set_style("whitegrid")
         g = sns.relplot(
             data=df1,
-            x="iteration (x1000)",
+            x="iteration (x5000)",
             y="value",
             hue="lr",
             col="variable",
@@ -134,7 +140,8 @@ if __name__ == "__main__":
             palette="crest",
             col_wrap=3,
             height=6,
-            aspect=1.4
+            aspect=1.4,
+            ci=None
             # errorbar="sd"
         )
         sns.despine()
@@ -144,7 +151,7 @@ if __name__ == "__main__":
             if item =="Log local dimension":
                 ax.set_ylim(0, 1)
             if item =='Test accuracy':
-                ax.set_ylim(88, 92)
+                ax.set_ylim(89, 91)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
@@ -157,11 +164,11 @@ if __name__ == "__main__":
 
         df2 = df[df["lr"] == 0.1]
         # breakpoint()
-        df2['iteration (x1000)'] = df2['iteration'] //1000
+        df2['iteration (x5000)'] = df2['iteration'] //5000
         # df2 = df2[df2["iteration (x1000)"] <= 100]
         g = sns.relplot(
             data=df2,
-            x="iteration (x1000)",
+            x="iteration (x5000)",
             # x="epoch",
             y="value",
             hue="batch size",
@@ -171,7 +178,8 @@ if __name__ == "__main__":
             palette="Set1",
             col_wrap=3,
             height=6,
-            aspect=1.4
+            aspect=1.4,
+            ci=None
             # errorbar="sd"
         )
         sns.despine()
@@ -181,7 +189,7 @@ if __name__ == "__main__":
             if item =="Log local dimension":
                 ax.set_ylim(0, 1)
             if item =='Test accuracy':
-                ax.set_ylim(88, 92)
+                ax.set_ylim(89, 91)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')

@@ -31,11 +31,11 @@ class FNN(nn.Module):
         super(FNN,self).__init__()
         self.num_classes = num_classes
         if dataset == 'fashionmnist':
-            self.net = nn.Sequential(nn.Linear(784,1000),
+            self.net = nn.Sequential(nn.Linear(784,500),
                             nn.ReLU(),
-                            nn.Linear(1000,1000),
+                            nn.Linear(500,500),
                             nn.ReLU(),
-                            nn.Linear(1000,500),
+                            nn.Linear(500,500),
                             nn.ReLU(),
                             nn.Linear(500,num_classes))
         elif dataset == 'cifar10':

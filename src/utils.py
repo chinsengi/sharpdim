@@ -149,7 +149,9 @@ def eval_accuracy(model, criterion, dataloader, hard_sample=False):
         acc, correct_index = accuracy(logits, targets, index=True)
         if hard_sample:
             if logits[~correct_index].shape[0] > 0:
-                loss_t += criterion(logits[~correct_index], targets[~correct_index]).item()
+                loss_t += criterion(
+                    logits[~correct_index], targets[~correct_index]
+                ).item()
         else:
             loss_t += criterion(logits, targets).item()
         acc_t += acc.item()
@@ -162,7 +164,11 @@ def eval_accuracy(model, criterion, dataloader, hard_sample=False):
         hard_sample_loader = DataLoader(hard_samples, hard_targets, batch_size=1)
         return loss_t / n_batchs, acc_t / n_batchs, hard_sample_loader
     else:
-        return loss_t / n_batchs, acc_t / n_batchs, DataLoader(dataloader.X, dataloader.y, batch_size=1)
+        return (
+            loss_t / n_batchs,
+            acc_t / n_batchs,
+            DataLoader(dataloader.X, dataloader.y, batch_size=1),
+        )
 
 
 def eval_output(model, dataloader):
@@ -192,12 +198,16 @@ def eval_output(model, dataloader):
 
 def get_gradW(model, dataloader, ndata, k=1):
     assert dataloader.batch_size == 1
+    gradtheta = 0
     gradW = 0
+    B = 0
     for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         logits = model(X).reshape(1, -1)
         output_dim = logits.shape[1]
+        normX = torch.linalg.vector_norm(X.flatten(), 2).item()
+        old_gradW = gradW
         for j in range(output_dim):
             logit = logits[0][j]
             model.zero_grad()
@@ -205,32 +215,24 @@ def get_gradW(model, dataloader, ndata, k=1):
 
             grad = [p.grad.detach().cpu().numpy() for p in model.parameters()]
             grad = [np.reshape(g, (-1)) for g in grad]
-            grad = np.concatenate(grad)
-            gradW += np.sum(grad ** 2)
-    return np.sqrt(gradW / ndata)
+            cur_gradtheta = np.concatenate(grad)
+            W = get_first_layer_weight(model)
+            if W is not None:
+                cur_gradW = W.grad.detach().cpu().numpy()
+            else:
+                cur_gradW = 0
+            gradtheta += np.sum(cur_gradtheta**2)
+            gradW += np.sum(cur_gradW**2)
+        B += np.sqrt(gradW - old_gradW) / normX
+    return np.sqrt(gradW / ndata), np.sqrt(gradtheta / ndata), B / ndata
 
 
-"""
-    get gradient with respect to x
-"""
-
-
-def get_gradx(model, dataloader, ndata, k=1):
-    assert dataloader.batch_size == 1
-    gradx = 0
-    for _ in range(ndata):
-        X, y = next(dataloader)
-        X, y = X.cuda(), y.cuda()
-        X.requires_grad = True
-        logits = model(X).reshape(1, -1)
-        for j in range(logits.shape[1]):
-            logit = logits[0][j]
-            model.zero_grad()
-            grad = torch.autograd.grad(logit, X, retain_graph=True)[0]
-            grad = grad.detach().numpy()
-            grad = np.reshape(grad, (-1))
-            gradx += np.sum(grad ** (2 * k))
-    return gradx / ndata
+def get_first_layer_weight(model):
+    for param in model.parameters():
+        if len(param.shape) == 2:  # Check if the parameter is a weight matrix (2D)
+           return param
+        break
+    return None
 
 
 def get_dim(model, dataloader, ndata):
@@ -238,12 +240,15 @@ def get_dim(model, dataloader, ndata):
     dim = 0
     log_vol = 0
     G = 0
+    A = 0
+    B = 0
     for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True
         logits = model(X).reshape(1, -1)
         grad_x = np.zeros((logits.shape[1], torch.numel(X)))
+        old_G = G
         for j in range(logits.shape[1]):
             logit = logits[0][j]
             model.zero_grad()
@@ -251,15 +256,32 @@ def get_dim(model, dataloader, ndata):
             grad = grad.cpu().detach().numpy()
             grad = np.reshape(grad, (-1))
             grad_x[j, :] = grad
-            G += np.sum(grad ** 2)
+            G += np.sum(grad**2)
         sing_val = np.linalg.svd(grad_x, compute_uv=False)
         eig_val = sing_val**2
+        A += np.max(sing_val)
         cur_dim = np.sum(eig_val) ** 2 / np.sum(eig_val**2)
         dim += cur_dim
         log_vol += cal_logvol(eig_val, cur_dim)
-    return dim / ndata, log_vol / ndata, G / ndata, eig_val
+    return dim / ndata, log_vol / ndata, G / ndata, eig_val, A / ndata
 
 
 def cal_logvol(eig_val, dim):
     # return np.sum(np.log(eig_val[:math.floor(dim.item())])) / 2
     return np.sum(np.log(eig_val[:3])) / 2
+
+
+def min_norm(dataloader, ndata):
+    min_norm = 1e10
+    for i in range(ndata):
+        X, y = next(dataloader)
+        min_norm = min(min_norm, torch.linalg.matrix_norm(X, "fro").item())
+    return min_norm
+
+
+def quad_mean(dataloader, ndata):
+    quad = 0
+    for i in range(ndata):
+        X, y = next(dataloader)
+        quad += 1 / torch.linalg.vector_norm(X.flatten(), 2).item() ** 2
+    return np.sqrt(quad / ndata)

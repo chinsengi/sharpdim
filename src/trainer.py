@@ -3,7 +3,15 @@ import numpy as np
 import logging
 import torch
 from tqdm import tqdm
-from .utils import get_dim, load_data, accuracy, get_gradW, eval_accuracy
+from .utils import (
+    get_dim,
+    load_data,
+    accuracy,
+    get_gradW,
+    eval_accuracy,
+    min_norm,
+    quad_mean,
+)
 from .data import DataLoader
 
 
@@ -30,6 +38,11 @@ def train(
     loss_list = []
     test_acc_list = []
     test_loss_list = []
+    W_list = []
+    quad_list = []
+    gradW_list = []
+    A_list = []
+    B_list = []
 
     since = time.time()
 
@@ -46,30 +59,54 @@ def train(
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
-        
+
         if (iter_now + 1) % args.cal_freq == 0:
             if args.test_sample:
-                test_loss, test_accuracy, dim_dataloader = eval_accuracy(model, criterion, test_loader, hard_sample=args.hard_sample)
+                test_loss, test_accuracy, dim_dataloader = eval_accuracy(
+                    model, criterion, test_loader, hard_sample=args.hard_sample
+                )
             else:
-                test_loss, test_accuracy, _ = eval_accuracy(model, criterion, test_loader)
+                test_loss, test_accuracy, _ = eval_accuracy(
+                    model, criterion, test_loader
+                )
             # test loss and accuracy
             test_acc_list.append(test_accuracy)
             test_loss_list.append(test_loss)
 
-            # calculate dimension, log volume, G and eigenvalues. 
-            dim, log_vol, G, eig_val = get_dim(model, dim_dataloader, args.dim_nsample)
+            # calculate dimension, log volume, G and eigenvalues.
+            dim, log_vol, G, eig_val, A = get_dim(
+                model, dim_dataloader, args.dim_nsample
+            )
             dim_list.append(dim)
             logvol_list.append(log_vol)
             g_list.append(G)
             eig_list.append(eig_val)
+            A_list.append(A)
 
             # calculate sharpness
-            sharpness_list.append(get_gradW(model, dim_dataloader, args.dim_nsample))
+            dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
+            gradW, sharpness, B = get_gradW(model, dim_dataloader, args.dim_nsample)
+            sharpness_list.append(sharpness)
             acc_list.append(acc_avg.item())
             loss_list.append(loss_avg)
+            gradW_list.append(gradW)
+            B_list.append(B)
 
+            # calculate min input 2-norm and the norm of first layer.
+            # breakpoint()
+            W_norm = None
+            for param in model.parameters():
+                if (
+                    len(param.shape) == 2
+                ):  # Check if the parameter is a weight matrix (2D)
+                    W_norm = torch.linalg.matrix_norm(param, 2)
+                break
+            if W_norm is not None: W_list.append(W_norm.item())
+            dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
+            quad = quad_mean(dim_dataloader, args.dim_nsample)
+            quad_list.append(quad)
 
-        if iter_now % 1000 == 0 and verbose:
+        if iter_now % 10000 == 0 and verbose:
             if args.use_scheduler:
                 scheduler.step(loss)
             now = time.time()
@@ -88,13 +125,18 @@ def train(
         loss_list,
         test_acc_list,
         test_loss_list,
+        W_list,
+        quad_list,
+        gradW_list,
+        A_list,
+        B_list,
     )
 
 
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
     loss, acc = 0, 0
     n_loads = batch_size // dataloader.batch_size
-    assert(n_loads==1)
+    assert n_loads == 1
     for i in range(n_loads):
         inputs, targets = next(dataloader)
         inputs, targets = inputs.cuda(), targets.cuda()
