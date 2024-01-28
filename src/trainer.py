@@ -93,7 +93,6 @@ def train(
             B_list.append(B)
 
             # calculate min input 2-norm and the norm of first layer.
-            # breakpoint()
             W_norm = None
             for param in model.parameters():
                 if (
