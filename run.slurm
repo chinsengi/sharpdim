@@ -8,7 +8,7 @@
 # SBATCH --partition=gpu-rtx6k
 #SBATCH --partition=gpu-2080ti
 # SBATCH --partition=ckpt
-#SBATCH --nodes=3
+#SBATCH --nodes=4
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 #SBATCH --time=1-00:00:00
@@ -27,7 +27,7 @@ RUNID=20
 NETWORK="vgg"
 DATASET="cifar10"
 # N_ITERS="1000000"
-N_ITERS="500000"
+N_ITERS="150000"
 CAL_FREQ="200"
 REPEAT=2
 for ((k = 1; k <= $REPEAT; k++)); do
