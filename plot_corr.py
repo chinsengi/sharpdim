@@ -55,7 +55,7 @@ if __name__ == "__main__":
             )
             data[list_name] = data[list_name][-500:]
 
-        data["test_loss"] *= 10
+        # data["test_loss"] *= 10
         for list_name in data_list[:6]:
             if stat.get(list_name) is None:
                 stat[list_name] = []

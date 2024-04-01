@@ -31,8 +31,6 @@ def construct_df(run_ids, dataset, recompute=False):
     else:
         dfs = []
         for run_id in run_ids:
-            if run_id == 5:
-                continue
             # load the json file
             with open(f"run/{dataset}/{run_id}/config.json") as f:
                 config = json.load(f)
@@ -46,6 +44,7 @@ def construct_df(run_ids, dataset, recompute=False):
                 "loss_list",
                 "test_acc_list",
                 "test_loss_list",
+                "A_list"
             ]
             data = {}
             for list_name in data_list:
@@ -81,6 +80,7 @@ def construct_df(run_ids, dataset, recompute=False):
                     "Test loss": data["test_loss_list"],
                     "G": data["g_list"],
                     "eig": data["eig_list"].tolist(),
+                    "MLS": data["A_list"]
                 }
             )
             dfs.append(df)
@@ -92,7 +92,7 @@ def construct_df(run_ids, dataset, recompute=False):
         "Test accuracy",
         "Sharpness",
         "Log volume",
-        "G",
+        "MLS",
         "Log local dimension",
     ]
     df = dfs.set_index(vars2idxs)[vars2stack]
@@ -108,8 +108,8 @@ def construct_df(run_ids, dataset, recompute=False):
 
 if __name__ == "__main__":
     # plt.style.use('science')
-    dataset_list = ["fashionmnist"]
-    # dataset_list = ["cifar10"]
+    # dataset_list = ["fashionmnist"]
+    dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
         # run_ids = [i for i in range(1,11)]
@@ -151,7 +151,10 @@ if __name__ == "__main__":
             if item =="Log local dimension":
                 ax.set_ylim(0, 1)
             if item =='Test accuracy':
-                ax.set_ylim(89, 91)
+                if dataset == "fashionmnist":
+                    ax.set_ylim(89, 91)
+                else:
+                    ax.set_ylim(93, 96)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
@@ -187,9 +190,15 @@ if __name__ == "__main__":
             ax.grid(False)
             ax.set_title(item)
             if item =="Log local dimension":
-                ax.set_ylim(0, 1)
+                if dataset == "fashionmnist":
+                    ax.set_ylim(0, 1)
+                else:
+                    ax.set_ylim(0,.25)
             if item =='Test accuracy':
-                ax.set_ylim(89, 91)
+                if dataset == "fashionmnist":
+                    ax.set_ylim(89, 91)
+                else:
+                    ax.set_ylim(93, 96)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
