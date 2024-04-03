@@ -43,7 +43,7 @@ def get_args():
         default="fashionmnist",
         help="dataset, [fashionmnist] | cifar10, 1dfunction",
     )
-    parser.add_argument("--network", default="vgg", help="network, [vgg] | fnn, resnet")
+    parser.add_argument("--network", default="fnn", help="network, [fnn] | vgg, resnet")
     parser.add_argument("--num_classes", type=int, default=10)
     parser.add_argument("--optimizer", default="sgd", help="optimizer, [sgd]")
     parser.add_argument(

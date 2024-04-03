@@ -13,7 +13,7 @@ from .utils import (
     quad_mean,
 )
 from .data import DataLoader
-
+import torch.nn as nn
 
 def train(
     model,
@@ -54,6 +54,10 @@ def train(
     dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
+        if (iter_now + 1) % args.cal_freq == 0:
+            global activations
+            activations = []
+            handles = register(model)
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
         optimizer.step()
 
@@ -105,7 +109,9 @@ def train(
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
 
-        if iter_now % 10000 == 0 and verbose:
+            unregister(handles)
+
+        if (iter_now+1) % 10000 == 0 and verbose:
             if args.use_scheduler:
                 scheduler.step(loss)
             now = time.time()
@@ -151,6 +157,20 @@ def train(
         B_list,
     )
 
+def save_activations(module, input, output):
+    activations.append(output)
+
+def register(model):
+    handles = []
+    for layer in model.net:
+        if isinstance(layer, nn.Linear):
+            handle = layer.register_forward_hook(save_activations)
+            handles.append(handle)
+    return handles
+
+def unregister(handles):
+    for handle in handles:
+        handle.remove()
 
 def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
     loss, acc = 0, 0
