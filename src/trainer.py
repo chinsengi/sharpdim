@@ -39,10 +39,10 @@ def train(
     test_acc_list = []
     test_loss_list = []
     W_list = []
-    quad_list = []
-    gradW_list = []
-    A_list = []
-    B_list = []
+    quad_list = [] # quadratic mean of the inputs
+    gradW_list = [] # gradient of output w.r.t. the first layer weights
+    A_list = [] # MLS
+    B_list = [] # see appendix D.1
 
     since = time.time()
 
@@ -102,7 +102,7 @@ def train(
                 break
             if W_norm is not None: W_list.append(W_norm.item())
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
-            quad = quad_mean(dim_dataloader, args.dim_nsample)
+            quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
 
         if iter_now % 10000 == 0 and verbose:
@@ -114,6 +114,26 @@ def train(
                 % (iter_now + 1, n_iters, now - since, loss_avg, acc_avg)
             )
             since = time.time()
+
+    '''
+    make sure that the returned variables match
+    save_list = [
+            "dim_list",
+            "sharpness_list",
+            "logvol_list",
+            "acc_list",
+            "g_list",
+            "eig_list",
+            "loss_list",
+            "test_acc_list",
+            "test_loss_list",
+            "W_list",
+            "quad_list",
+            "gradW_list",
+            "A_list",
+            "B_list",
+        ]
+    '''
     return (
         dim_list,
         sharpness_list,

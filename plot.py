@@ -11,22 +11,22 @@ import scienceplots as sp
 import math
 
 
-def plot_res(res_list, title, save_path, file_name):
-    create_dir(save_path)
-    plt.figure()
-    res_list = res_list[: (len(res_list) // 20) * 20].reshape(20, -1).mean(axis=0)
-    # epoch = np.arange(10, len(res_list) * 10 + 1, 10)
-    # plt.scatter(epoch, res_list, s=1)
-    plt.plot(res_list)
-    plt.title(title)
-    plt.xlabel("iteration")
-    # plt.ylabel('dimension')
-    plt.savefig(os.path.join(save_path, file_name))
-    # plt.close()
+# def plot_res(res_list, title, save_path, file_name):
+#     create_dir(save_path)
+#     plt.figure()
+#     res_list = res_list[: (len(res_list) // 20) * 20].reshape(20, -1).mean(axis=0)
+#     # epoch = np.arange(10, len(res_list) * 10 + 1, 10)
+#     # plt.scatter(epoch, res_list, s=1)
+#     plt.plot(res_list)
+#     plt.title(title)
+#     plt.xlabel("iteration")
+#     # plt.ylabel('dimension')
+#     plt.savefig(os.path.join(save_path, file_name))
+#     # plt.close()
 
 
-def construct_df(run_ids, dataset, recompute=False):
-    if os.path.exists(f"res/df_{dataset}.pkl") and not recompute:
+def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
+    if os.path.exists(f"res/df_{dataset}.pkl") and not reconst:
         dfs = pd.read_pickle(f"res/df_{dataset}.pkl")
     else:
         dfs = []
@@ -87,8 +87,7 @@ def construct_df(run_ids, dataset, recompute=False):
         dfs = pd.concat(dfs)
     vars2idxs = ["run_id", "epoch", "network", "dataset", "iteration", "lr", "batch size"]
     vars2stack = [
-        "Train loss",
-        # "Test loss",
+        "Train loss" if use_test_sample else "Test loss",
         "Test accuracy",
         "Sharpness",
         "Log volume",
@@ -119,7 +118,7 @@ if __name__ == "__main__":
             else [i for i in range(10, 30)]
         )
         print(f"run_ids to plot: {run_ids}")
-        df = construct_df(run_ids, dataset, recompute=True)
+        df = construct_df(run_ids, dataset, reconst=True)
         # breakpoint()
         df1 = df[df["batch size"] == 20]
         # df1 = df1[df1["lr"] != 0.075]

@@ -241,7 +241,6 @@ def get_dim(model, dataloader, ndata):
     log_vol = 0
     G = 0
     A = 0
-    B = 0
     for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
@@ -281,7 +280,7 @@ def min_norm(dataloader, ndata):
 
 def quad_mean(dataloader, ndata):
     quad = 0
-    for i in range(ndata):
-        X, y = next(dataloader)
+    for _ in range(ndata):
+        X, _ = next(dataloader)
         quad += 1 / torch.linalg.vector_norm(X.flatten(), 2).item() ** 2
     return np.sqrt(quad / ndata)
