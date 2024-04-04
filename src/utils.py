@@ -66,9 +66,9 @@ def create_dir(path="./model"):
         os.makedirs(path)
 
 
-def load_net(network, dataset, num_classes):
+def load_net(network, dataset, num_classes, use_layer_norm=False):
     if network == "fnn":
-        return fnn(dataset, num_classes)
+        return fnn(dataset, num_classes, use_layer_norm)
     elif network == "vgg":
         if dataset == "fashionmnist":
             in_channel = 1

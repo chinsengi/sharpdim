@@ -27,16 +27,21 @@ class LeNet(nn.Module):
         return o
 
 class FNN(nn.Module):
-    def __init__(self, dataset, num_classes):
+    def __init__(self, dataset, num_classes, use_layer_norm=False):
         super(FNN,self).__init__()
         self.num_classes = num_classes
         if dataset == 'fashionmnist':
-            self.net = nn.Sequential(nn.Linear(784,500),
+            self.net = nn.Sequential(
+                            nn.LayerNorm(784,elementwise_affine=False) if use_layer_norm else nn.Identity(),
+                            nn.Linear(784,500),
                             nn.ReLU(),
+                            nn.LayerNorm(500, elementwise_affine=False) if use_layer_norm else nn.Identity(),
                             nn.Linear(500,500),
                             nn.ReLU(),
+                            nn.LayerNorm(500, elementwise_affine=False) if use_layer_norm else nn.Identity(),
                             nn.Linear(500,500),
                             nn.ReLU(),
+                            nn.LayerNorm(500, elementwise_affine=False) if use_layer_norm else nn.Identity(),
                             nn.Linear(500,num_classes))
         elif dataset == 'cifar10':
             self.net = nn.Sequential(nn.Linear(3072,500),
@@ -62,6 +67,6 @@ class FNN(nn.Module):
 def lenet():
     return LeNet()
 
-def fnn(dataset, num_classes):
-    return FNN(dataset, num_classes)
+def fnn(dataset, num_classes, use_layer_norm=False):
+    return FNN(dataset, num_classes, use_layer_norm=use_layer_norm)
 

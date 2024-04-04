@@ -38,7 +38,8 @@ def train(
     loss_list = []
     test_acc_list = []
     test_loss_list = []
-    W_list = []
+    W0_list = [] # norm of the first linear layer weights
+    W_list = [] # norm of all linear weights
     quad_list = [] # quadratic mean of the inputs
     gradW_list = [] # gradient of output w.r.t. the first layer weights
     A_list = [] # MLS
@@ -98,13 +99,15 @@ def train(
 
             # calculate min input 2-norm and the norm of first layer.
             W_norm = None
-            for param in model.parameters():
-                if (
-                    len(param.shape) == 2
-                ):  # Check if the parameter is a weight matrix (2D)
-                    W_norm = torch.linalg.matrix_norm(param, 2)
-                break
-            if W_norm is not None: W_list.append(W_norm.item())
+            W_norm = 0
+            for name, param in model.named_parameters():
+                breakpoint()
+                if name == 'net.0.weight':  # Check if the parameter is a weight matrix (2D)
+                    W0_norm = torch.linalg.matrix_norm(param, 2)
+                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)
+                elif 'weight' in name:
+                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)
+            if W0_norm is not None: W0_list.append(W0_norm.item())
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
