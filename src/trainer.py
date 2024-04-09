@@ -98,11 +98,12 @@ def train(
             B_list.append(B)
 
             # calculate min input 2-norm and the norm of first layer.
-            W_norm = None
+            W0_norm = None
             W_norm = 0
             for name, param in model.named_parameters():
-                breakpoint()
-                if name == 'net.0.weight':  # Check if the parameter is a weight matrix (2D)
+                print(name)
+                if name == 'net.1.weight':  # Check if the parameter is a weight matrix (2D)
+                    breakpoint()
                     W0_norm = torch.linalg.matrix_norm(param, 2)
                     W_norm = W_norm + torch.linalg.matrix_norm(param, 2)
                 elif 'weight' in name:
@@ -190,6 +191,7 @@ def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
         loss += E.item()
         acc += accuracy(logits, targets)
 
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
     if n_loads > 1:
         for p in model.parameters():
             p.grad.data /= n_loads

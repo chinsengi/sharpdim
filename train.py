@@ -79,7 +79,7 @@ def get_args():
     parser.add_argument("--cal_freq", type=int, default=100, help="how many data points within per epoch")
     parser.add_argument("--hard_sample", action="store_true", help="whether to use hard samples to compute dimension")
     parser.add_argument("--test_sample", action="store_true", help="whether to use test samples to compute dimension")
-    parser.add_argument("--use_layer_norm", action="store_true", help="whether to use layer norm")
+    parser.add_argument("--use_layer_norm", action="store_true", help="whether to use layer norm in fnn")
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.dataset, args.run_id)
