@@ -269,10 +269,12 @@ def get_dim(model, dataloader, ndata):
 
 def get_nmls(model, dataloader, ndata):
     nmls = 0
+    harmonic = 0
     assert dataloader.batch_size == 1
     for _ in range(ndata):
         activations = []
-        handles = register(model, activations)
+        weights = []
+        handles = register(model, activations, weights)
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True
@@ -287,20 +289,22 @@ def get_nmls(model, dataloader, ndata):
                 grad_x[j, :] = grad
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
-    return nmls/ndata
+            harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+    return nmls/ndata, harmonic/ndata
 
-def get_hook(activations):
+def get_hook(activations, weights):
     def save_activations(module, input, output):
         if module.__class__.__name__ == 'Linear':
             input[0].retain_grad()
             activations.append(input[0])
+            weights.append(module.weight)
     return save_activations
 
-def register(model, activations):
+def register(model, activations, weights):
     handles = []
     for layer in model.net:
         if isinstance(layer, nn.Linear):
-            handle = layer.register_forward_hook(get_hook(activations))
+            handle = layer.register_forward_hook(get_hook(activations, weights))
             handles.append(handle)
     return handles
 

@@ -46,6 +46,7 @@ def train(
     A_list = [] # MLS
     B_list = [] # see appendix D.1
     nmls_list = [] # NMLS
+    harm_list = [] # harmonic mean of the inputs 
 
     since = time.time()
 
@@ -78,9 +79,9 @@ def train(
             test_loss_list.append(test_loss)
 
             # calculation NMLS
-            nmls = get_nmls(model, dim_dataloader, args.dim_nsample)
-            print(nmls)
+            nmls, harmonic = get_nmls(model, dim_dataloader, args.dim_nsample)
             nmls_list.append(nmls)
+            harm_list.append(harmonic)
 
             # calculate dimension, log volume, G and eigenvalues.
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
@@ -147,6 +148,7 @@ def train(
             "A_list",
             "B_list",
             "nmls_list",
+            "harm_list",
         ]
     '''
     return (
@@ -165,6 +167,7 @@ def train(
         A_list,
         B_list,
         nmls_list,
+        harm_list,
     )
 
 def compute_minibatch_gradient(model, criterion, dataloader):
