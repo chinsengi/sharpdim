@@ -57,22 +57,12 @@ def train(
     dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
-        log = False
-        if (iter_now + 1) % args.cal_freq == 0:
-            log = True
-        activations = []
-        if log:
-            handles = register(model, activations)
-        loss, acc, logits = compute_minibatch_gradient(model, criterion, dataloader, log)
+        loss, acc = compute_minibatch_gradient(model, criterion, dataloader)
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
 
-        if log:
-            # calculation NMLS
-            nmls = get_nmls(model, activations, logits)
-            nmls_list.append(nmls)
-            unregister(handles)
+        if (iter_now + 1) % args.cal_freq == 0:
 
             if args.test_sample:
                 test_loss, test_accuracy, dim_dataloader = eval_accuracy(
@@ -82,11 +72,18 @@ def train(
                 test_loss, test_accuracy, _ = eval_accuracy(
                     model, criterion, test_loader
                 )
+
             # test loss and accuracy
             test_acc_list.append(test_accuracy)
             test_loss_list.append(test_loss)
 
+            # calculation NMLS
+            nmls = get_nmls(model, dim_dataloader, args.dim_nsample)
+            print(nmls)
+            nmls_list.append(nmls)
+
             # calculate dimension, log volume, G and eigenvalues.
+            dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             dim, log_vol, G, eig_val, A = get_dim(
                 model, dim_dataloader, args.dim_nsample
             )
@@ -149,6 +146,7 @@ def train(
             "gradW_list",
             "A_list",
             "B_list",
+            "nmls_list",
         ]
     '''
     return (
@@ -166,41 +164,21 @@ def train(
         gradW_list,
         A_list,
         B_list,
+        nmls_list,
     )
 
-def get_hook(activations):
-    def save_activations(module, input, output):
-        if module.__class__.__name__ == 'Linear':
-            input[0].retain_grad()
-            activations.append(input[0])
-    return save_activations
-
-def register(model, activations):
-    handles = []
-    for layer in model.net:
-        if isinstance(layer, nn.Linear):
-            handle = layer.register_forward_hook(get_hook(activations))
-            handles.append(handle)
-    return handles
-
-def unregister(handles):
-    for handle in handles:
-        handle.remove()
-
-def compute_minibatch_gradient(model, criterion, dataloader, log=False):
+def compute_minibatch_gradient(model, criterion, dataloader):
     loss, acc = 0, 0
     inputs, targets = next(dataloader)
     inputs, targets = inputs.cuda(), targets.cuda()
 
-    if log:
-        inputs.requires_grad = True
     logits = model(inputs)
     E = criterion(logits, targets)
-    E.backward(retain_graph=log)
+    E.backward()
 
     loss += E.item()
     acc += accuracy(logits, targets)
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
 
-    return loss, acc, logits
+    return loss, acc

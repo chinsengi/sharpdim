@@ -189,6 +189,7 @@ def main():
             "gradW_list",
             "A_list",
             "B_list",
+            "nmls_list",
         ]
         for i in range(len(lists)):
             save_npy(lists[i], f"res/{args.dataset}/{args.run_id}", save_list[i] + args.run_id)

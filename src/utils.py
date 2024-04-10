@@ -5,6 +5,7 @@ import time
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
+import torch.nn as nn
 import logging
 import random
 from .models.vgg import vgg11, vgg11_big
@@ -266,21 +267,46 @@ def get_dim(model, dataloader, ndata):
     return dim / ndata, log_vol / ndata, G / ndata, eig_val, A / ndata
 
 
-def get_nmls(model, activations, logits):
+def get_nmls(model, dataloader, ndata):
     nmls = 0
-    ndata = activations[0].shape[0]
-    for i in range(len(activations)):
-        for n in range(ndata):
+    assert dataloader.batch_size == 1
+    for _ in range(ndata):
+        activations = []
+        handles = register(model, activations)
+        X, y = next(dataloader)
+        X, y = X.cuda(), y.cuda()
+        X.requires_grad = True
+        logits = model(X).reshape(1, -1)
+        unregister(handles)
+        for i in range(len(activations)):
             grad_x = torch.zeros((logits.shape[1], activations[i].shape[1]))
             for j in range(logits.shape[1]):
-                logit = logits[n][j] 
+                logit = logits[0][j]
                 model.zero_grad()
                 grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[0]
-                grad_x[j, :] = grad[n, :]
+                grad_x[j, :] = grad
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
     return nmls/ndata
 
+def get_hook(activations):
+    def save_activations(module, input, output):
+        if module.__class__.__name__ == 'Linear':
+            input[0].retain_grad()
+            activations.append(input[0])
+    return save_activations
+
+def register(model, activations):
+    handles = []
+    for layer in model.net:
+        if isinstance(layer, nn.Linear):
+            handle = layer.register_forward_hook(get_hook(activations))
+            handles.append(handle)
+    return handles
+
+def unregister(handles):
+    for handle in handles:
+        handle.remove()
 
 def cal_logvol(eig_val, dim):
     # return np.sum(np.log(eig_val[:math.floor(dim.item())])) / 2
