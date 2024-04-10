@@ -11,6 +11,7 @@ from .utils import (
     eval_accuracy,
     min_norm,
     quad_mean,
+    get_nmls,
 )
 from .data import DataLoader
 import torch.nn as nn
@@ -44,28 +45,35 @@ def train(
     gradW_list = [] # gradient of output w.r.t. the first layer weights
     A_list = [] # MLS
     B_list = [] # see appendix D.1
+    nmls_list = [] # NMLS
 
     since = time.time()
 
     # set up scheduler
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", patience=10, verbose=True
+        optimizer, mode="min", patience=10
     )
 
     dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
+        log = False
         if (iter_now + 1) % args.cal_freq == 0:
-            global activations
-            activations = []
-            handles = register(model)
-        loss, acc = compute_minibatch_gradient(model, criterion, dataloader, batch_size)
-        optimizer.step()
+            log = True
+        activations = []
+        if log:
+            handles = register(model, activations)
+        loss, acc, logits = compute_minibatch_gradient(model, criterion, dataloader, log)
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
 
-        if (iter_now + 1) % args.cal_freq == 0:
+        if log:
+            # calculation NMLS
+            nmls = get_nmls(model, activations, logits)
+            nmls_list.append(nmls)
+            unregister(handles)
+
             if args.test_sample:
                 test_loss, test_accuracy, dim_dataloader = eval_accuracy(
                     model, criterion, test_loader, hard_sample=args.hard_sample
@@ -101,19 +109,18 @@ def train(
             W0_norm = None
             W_norm = 0
             for name, param in model.named_parameters():
-                print(name)
                 if name == 'net.1.weight':  # Check if the parameter is a weight matrix (2D)
-                    breakpoint()
                     W0_norm = torch.linalg.matrix_norm(param, 2)
-                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)
+                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)**2
                 elif 'weight' in name:
-                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)
+                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)**2
             if W0_norm is not None: W0_list.append(W0_norm.item())
+            W_list.append(torch.sqrt(W_norm).item())
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
 
-            unregister(handles)
+        optimizer.step()
 
         if (iter_now+1) % 10000 == 0 and verbose:
             if args.use_scheduler:
@@ -161,14 +168,18 @@ def train(
         B_list,
     )
 
-def save_activations(module, input, output):
-    activations.append(output)
+def get_hook(activations):
+    def save_activations(module, input, output):
+        if module.__class__.__name__ == 'Linear':
+            input[0].retain_grad()
+            activations.append(input[0])
+    return save_activations
 
-def register(model):
+def register(model, activations):
     handles = []
     for layer in model.net:
         if isinstance(layer, nn.Linear):
-            handle = layer.register_forward_hook(save_activations)
+            handle = layer.register_forward_hook(get_hook(activations))
             handles.append(handle)
     return handles
 
@@ -176,24 +187,20 @@ def unregister(handles):
     for handle in handles:
         handle.remove()
 
-def compute_minibatch_gradient(model, criterion, dataloader, batch_size):
+def compute_minibatch_gradient(model, criterion, dataloader, log=False):
     loss, acc = 0, 0
-    n_loads = batch_size // dataloader.batch_size
-    assert n_loads == 1
-    for i in range(n_loads):
-        inputs, targets = next(dataloader)
-        inputs, targets = inputs.cuda(), targets.cuda()
+    inputs, targets = next(dataloader)
+    inputs, targets = inputs.cuda(), targets.cuda()
 
-        logits = model(inputs)
-        E = criterion(logits, targets)
-        E.backward()
+    if log:
+        inputs.requires_grad = True
+    logits = model(inputs)
+    E = criterion(logits, targets)
+    E.backward(retain_graph=log)
 
-        loss += E.item()
-        acc += accuracy(logits, targets)
+    loss += E.item()
+    acc += accuracy(logits, targets)
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-    if n_loads > 1:
-        for p in model.parameters():
-            p.grad.data /= n_loads
 
-    return loss / n_loads, acc / n_loads
+    return loss, acc, logits

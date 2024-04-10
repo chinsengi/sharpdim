@@ -194,16 +194,14 @@ def eval_output(model, dataloader):
     ndata: number of data points
     k: order of norm (the inequality in the paper is for k=1)
 """
-
-
 def get_gradW(model, dataloader, ndata, k=1):
     assert dataloader.batch_size == 1
     gradtheta = 0
     gradW = 0
     B = 0
     for _ in range(ndata):
-        X, y = next(dataloader)
-        X, y = X.cuda(), y.cuda()
+        X, _ = next(dataloader)
+        X = X.cuda()
         logits = model(X).reshape(1, -1)
         output_dim = logits.shape[1]
         normX = torch.linalg.vector_norm(X.flatten(), 2).item()
@@ -235,6 +233,9 @@ def get_first_layer_weight(model):
     return None
 
 
+'''
+Calculation of all metric in the feature space
+'''
 def get_dim(model, dataloader, ndata):
     assert dataloader.batch_size == 1
     dim = 0
@@ -263,6 +264,22 @@ def get_dim(model, dataloader, ndata):
         dim += cur_dim
         log_vol += cal_logvol(eig_val, cur_dim)
     return dim / ndata, log_vol / ndata, G / ndata, eig_val, A / ndata
+
+
+def get_nmls(model, activations, logits):
+    nmls = 0
+    ndata = activations[0].shape[0]
+    for i in range(len(activations)):
+        for n in range(ndata):
+            grad_x = torch.zeros((logits.shape[1], activations[i].shape[1]))
+            for j in range(logits.shape[1]):
+                logit = logits[n][j] 
+                model.zero_grad()
+                grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[0]
+                grad_x[j, :] = grad[n, :]
+            sing_val = torch.linalg.svdvals(grad_x)
+            nmls += sing_val.max().item()
+    return nmls/ndata
 
 
 def cal_logvol(eig_val, dim):
