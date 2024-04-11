@@ -58,7 +58,8 @@ def train(
     dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
-        loss, acc = compute_minibatch_gradient(model, criterion, dataloader)
+        loss, acc = compute_minibatch_gradient(model, criterion, dataloader, args)
+        optimizer.step()
 
         acc_avg = 0.9 * acc_avg + 0.1 * acc if acc_avg > 0 else acc
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
@@ -118,7 +119,6 @@ def train(
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
 
-        optimizer.step()
 
         if (iter_now+1) % 10000 == 0 and verbose:
             if args.use_scheduler:
@@ -170,7 +170,7 @@ def train(
         harm_list,
     )
 
-def compute_minibatch_gradient(model, criterion, dataloader):
+def compute_minibatch_gradient(model, criterion, dataloader, args):
     loss, acc = 0, 0
     inputs, targets = next(dataloader)
     inputs, targets = inputs.cuda(), targets.cuda()
@@ -182,6 +182,7 @@ def compute_minibatch_gradient(model, criterion, dataloader):
     loss += E.item()
     acc += accuracy(logits, targets)
 
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+    if args.use_layer_norm:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
 
     return loss, acc

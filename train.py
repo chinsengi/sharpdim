@@ -80,6 +80,7 @@ def get_args():
     parser.add_argument("--hard_sample", action="store_true", help="whether to use hard samples to compute dimension")
     parser.add_argument("--test_sample", action="store_true", help="whether to use test samples to compute dimension")
     parser.add_argument("--use_layer_norm", action="store_true", help="whether to use layer norm in fnn")
+    parser.add_argument("--nonlinearity", default="tanh", help="nonlinearity of FFN, [tanh] | relu")
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.dataset, args.run_id)
@@ -154,7 +155,7 @@ def main():
     with open(os.path.join(args.log, "config.json"), "w") as f:
         f.write(config)
 
-    net = load_net(args.network, args.dataset, args.num_classes, args.use_layer_norm)
+    net = load_net(args.network, args.dataset, args.num_classes,args.nonlinearity, args.use_layer_norm)
     net = net.to(args.device)
     optimizer = get_optimizer(net, args)
     logging.info(optimizer)

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
-        run_id = 10
+        run_id = 42
         with open(f"run/{dataset}/{run_id}/config.json") as f:
             config = json.load(f)
         data_list = [
