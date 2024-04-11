@@ -41,13 +41,14 @@ if __name__ == "__main__":
                 "B": data["B_list"] * data["W_list"],
                 "C": data["W_list"] * data["quad_list"] * data["gradW_list"],
                 "D": data["sharpness_list"] * data["W_list"] * data["quad_list"],
+                "Sharpness": data["sharpness_list"],
                 "iteration (x5000)": np.arange(list_len) * sample_freq // 5000,
             }
         )
         df_plot = pd.melt(
             df,
             id_vars=["iteration (x5000)"],
-            value_vars=['A', 'B', 'C', 'D'],
+            value_vars=['A', 'B', 'C', 'D', 'Sharpness'],
             var_name="Bounds",
             value_name="Value",
         )

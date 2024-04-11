@@ -8,7 +8,7 @@
 #SBATCH --partition=gpu-rtx6k
 # SBATCH --partition=gpu-2080ti
 # SBATCH --partition=ckpt
-#SBATCH --nodes=8
+#SBATCH --nodes=1
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 #SBATCH --time=4:30:00
@@ -29,7 +29,7 @@ DATASET="fashionmnist"
 # N_ITERS="1000000"
 N_ITERS="750000"
 CAL_FREQ="200"
-REPEAT=8
+REPEAT=1
 for ((k = 1; k <= $REPEAT; k++)); do
     for i in ${lr[@]}; do
         srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters $N_ITERS --lr $i --batch_size 20  --random --cal_freq $CAL_FREQ --use_layer_norm&

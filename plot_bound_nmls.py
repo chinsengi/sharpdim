@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
-        run_id = 32
+        run_id = 34
         with open(f"run/{dataset}/{run_id}/config.json") as f:
             config = json.load(f)
         data_list = [
@@ -26,6 +26,7 @@ if __name__ == "__main__":
             "quad_list",
             "gradW_list",
             "sharpness_list",
+            "test_acc_list",
         ]
         data = {}
         for list_name in data_list:
@@ -34,17 +35,20 @@ if __name__ == "__main__":
             )
         list_len = len(data["nmls_list"])
         sample_freq = config["cal_freq"]
-        df = pd.DataFrame(
+        breakpoint()
+        df = pd.DataFrame(  
             {
                 "NMLS": data["nmls_list"],
                 "Bound": data["sharpness_list"] * np.sqrt(data["harm_list"]),
+                "Sharpness": data["sharpness_list"],
+                "Accuracy": data["test_acc_list"],
                 "iteration (x5000)": np.arange(list_len) * sample_freq // 5000,
             }
         )
         df_plot = pd.melt(
             df,
             id_vars=["iteration (x5000)"],
-            value_vars=['Bound', 'NMLS'],
+            value_vars=['Bound', 'NMLS', 'Sharpness', 'Accuracy'],
             var_name="Bounds",
             value_name="Value",
         )
