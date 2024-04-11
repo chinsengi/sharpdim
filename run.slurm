@@ -21,7 +21,7 @@
 declare -a lr=(".1")
 declare -a bs=("20")
 
-RUNID=32
+RUNID=40
 NETWORK="fnn"
 DATASET="fashionmnist"
 # NETWORK="vgg"
@@ -32,7 +32,7 @@ CAL_FREQ="200"
 REPEAT=8
 for ((k = 1; k <= $REPEAT; k++)); do
     for i in ${lr[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters $N_ITERS --lr $i --batch_size 20  --random --cal_freq $CAL_FREQ&
+        srun --ntasks=1 --gres=gpu:1 python train.py --network $NETWORK --dataset $DATASET --loss mse --run_id $RUNID --n_iters $N_ITERS --lr $i --batch_size 20  --random --cal_freq $CAL_FREQ --use_layer_norm&
         ((RUNID++))
     done
 
