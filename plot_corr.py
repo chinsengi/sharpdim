@@ -1,16 +1,10 @@
-from tkinter import font
 import matplotlib.pyplot as plt
 import numpy as np
-from pyparsing import col
 from src.utils import create_dir, savefig
-import os
-import argparse
 import pandas as pd
 import seaborn as sns
 import json
 from scipy.signal import savgol_filter
-import scienceplots as sp
-import math
 from scipy.stats import pearsonr
 
 
@@ -29,7 +23,8 @@ if __name__ == "__main__":
     dataset = "fashionmnist"
     # dataset = "cifar10"
     run_ids = (
-        [i for i in range(12, 32)]
+        [i for i in range(12, 32)] +\
+        [i for i in range(61, 81)]
         if dataset == "fashionmnist"
         else [i for i in range(10, 30)]
     )
@@ -38,40 +33,54 @@ if __name__ == "__main__":
         "dim",
         "sharpness",
         "logvol",
-        "g",
         "A",
-        "test_loss",
+        "nmls" if dataset == "fashionmnist" else None,
+        # "A",
+        "test_acc",
+        "loss",
         "W",
         "quad",
         "gradW",
+        "harm",
+        "acc"
     ]
     for run_id in run_ids:
         with open(f"run/{dataset}/{run_id}/config.json") as f:
             config = json.load(f)
         data = {}
-        for list_name in data_list:
-            data[list_name] = np.load(
-                f"res/{dataset}/{run_id}/" + list_name + "_list" + str(run_id) + ".npy"
-            )
-            data[list_name] = data[list_name][-500:]
-
+        try:
+            for list_name in data_list:
+                if list_name is None:
+                    continue
+                data[list_name] = np.load(
+                    f"res/{dataset}/{run_id}/" + list_name + "_list" + str(run_id) + ".npy"
+                )
+                data[list_name] = data[list_name][-500:]
+        except:
+            continue
+        print(run_id)
         # data["test_loss"] *= 10
-        for list_name in data_list[:6]:
+        for list_name in data_list[:5]:
             if stat.get(list_name) is None:
                 stat[list_name] = []
             # result = stats.pearsonr(data[list_name], data["test_loss"])
             stat[list_name].append(np.mean(data[list_name]))
+        stat["gen gap"] = [] if stat.get("gen gap") is None else stat["gen gap"]
+        stat["gen gap"].append(np.mean(-data["test_acc"] + data["acc"]))
         if dataset=="fashionmnist":
-            stat["C"] = [] if stat.get("C") is None else stat["C"]
+            # stat["C"] = [] if stat.get("C") is None else stat["C"]
             stat["D"] = [] if stat.get("D") is None else stat["D"]
-            stat["C"].append(np.mean(data["gradW"]*data['quad']))
+            stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
+            # stat["C"].append(np.mean(data["gradW"]*data['quad']))
             stat["D"].append(np.mean(data["sharpness"]*data["W"]*data['quad']))
+            stat["bound"].append(np.mean(data["sharpness"]*np.sqrt(data["harm"])))
 
     df = pd.DataFrame(stat)
     df.columns = (
-        ["Local dim", "Sharpness", "Log volume", "G", "MLS", "Test loss"]
+        ["Local dim", "Sharpness", "Log volume", "MLS", "MLS", "gen gap"]
         if dataset == "cifar10"
-        else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "Test loss", "C", "D"]
+        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap", "D", "bound"]
+        # else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "gen gap", "C", "D"]
     )
 
     # breakpoint()
@@ -82,7 +91,7 @@ if __name__ == "__main__":
     #     var_name="Metrics",
     #     value_name="Value",
     # )
-    sns.set(font_scale=2)
+    sns.set_theme(font_scale=2)
     # g = sns.scatterplot(
     #     data=df,
     #     x="test_loss",

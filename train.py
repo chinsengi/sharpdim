@@ -166,6 +166,7 @@ def main():
     
     logging.info("===> Start training")
     try:
+        torch.backends.cuda.preferred_linalg_library(backend="magma")
         lists = train(
             net,
             criterion,
@@ -192,6 +193,7 @@ def main():
             "B_list",
             "nmls_list",
             "harm_list",
+            "W0_list"
         ]
         for i in range(len(lists)):
             save_npy(lists[i], f"res/{args.dataset}/{args.run_id}", save_list[i] + args.run_id)
