@@ -252,7 +252,7 @@ def get_dim(model, dataloader, ndata):
         old_G = G
         for j in range(logits.shape[1]):
             logit = logits[0][j]
-            model.zero_grad()
+            # model.zero_grad()
             grad = torch.autograd.grad(logit, X, retain_graph=True)[0]
             grad = grad.cpu().detach().numpy()
             grad = np.reshape(grad, (-1))
@@ -284,7 +284,7 @@ def get_nmls(model, dataloader, ndata):
             grad_x = torch.zeros((logits.shape[1], activations[i].shape[1]))
             for j in range(logits.shape[1]):
                 logit = logits[0][j]
-                model.zero_grad()
+                # model.zero_grad()
                 grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[0]
                 grad_x[j, :] = grad
             sing_val = torch.linalg.svdvals(grad_x)
@@ -333,3 +333,50 @@ def quad_mean(dataloader, ndata):
         X, _ = next(dataloader)
         quad += 1 / torch.linalg.vector_norm(X.flatten(), 2).item() ** 2
     return np.sqrt(quad / ndata)
+
+# adapted from https://github.com/kampmichael/RelativeFlatnessAndGeneralization/blob/0baa1f0c87db2860e1a4d8f675ff0347a8872b3f/CorrelationFlatnessGeneralization/utils.py
+def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
+    loss = torch.tensor(0.).cuda()
+    for _ in range(ndata):
+        X, y = next(dataloader)
+        X, y = X.cuda(), y.cuda()
+        logits = model(X)
+        E = criterion(logits, y)
+        loss += E
+    loss /= ndata
+
+    num_linear_layers = 0   
+    for p in model.modules():
+        if isinstance(p, nn.Linear):
+            num_linear_layers += 1
+    idx = 0
+    for p in model.modules():
+        if not isinstance(p, nn.Linear):
+            continue
+        idx += 1
+        if idx == num_linear_layers:
+            feature_layer = p.weight
+            break
+    shape = feature_layer.shape
+
+    layer_jacobian = torch.autograd.grad(loss, feature_layer, create_graph=True, retain_graph=True)
+    drv2 = torch.empty(shape[1], shape[0], shape[0], shape[1], requires_grad=True).cuda()
+    for ind, n_grd in enumerate(layer_jacobian[0].T):
+        for neuron_j in range(shape[0]):
+            drv2[ind][neuron_j] = torch.autograd.grad(n_grd[neuron_j].cuda(), feature_layer, retain_graph=True)[0].cuda()
+    # print("got hessian")
+
+    trace_neuron_measure = 0.0
+    maxeigen_neuron_measure = 0.0
+    for neuron_i in range(shape[0]):
+        neuron_i_weights = feature_layer[neuron_i, :].data.cpu().numpy()
+        for neuron_j in range(shape[0]):
+            neuron_j_weights = feature_layer[neuron_j, :].data.cpu().numpy()
+            hessian = drv2[:,neuron_j,neuron_i,:]
+            trace = np.trace(hessian.data.cpu().numpy())
+            trace_neuron_measure += neuron_i_weights.dot(neuron_j_weights) * trace
+            if neuron_j == neuron_i:
+                eigenvalues = np.linalg.eigvalsh(hessian.data.cpu().numpy())
+                maxeigen_neuron_measure += neuron_i_weights.dot(neuron_j_weights) * eigenvalues[-1]
+
+    return trace_neuron_measure, maxeigen_neuron_measure

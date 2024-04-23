@@ -5,13 +5,12 @@ import torch
 from tqdm import tqdm
 from .utils import (
     get_dim,
-    load_data,
     accuracy,
     get_gradW,
     eval_accuracy,
-    min_norm,
     quad_mean,
     get_nmls,
+    calculateNeuronwiseHessians_fc_layer
 )
 from .data import DataLoader
 import torch.nn as nn
@@ -47,6 +46,7 @@ def train(
     B_list = [] # see appendix D.1
     nmls_list = [] # NMLS
     harm_list = [] # harmonic mean of the inputs 
+    rel_flatness_list = [] # relative flatness
 
     since = time.time()
 
@@ -65,7 +65,6 @@ def train(
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
 
         if (iter_now + 1) % args.cal_freq == 0:
-
             if args.test_sample:
                 test_loss, test_accuracy, dim_dataloader = eval_accuracy(
                     model, criterion, test_loader, hard_sample=args.hard_sample
@@ -119,6 +118,10 @@ def train(
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
 
+            # calculate the relative flatness
+            trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
+            rel_flatness_list.append(trace_nm)
+
 
         if (iter_now+1) % 10000 == 0 and verbose:
             if args.use_scheduler:
@@ -149,6 +152,7 @@ def train(
             "B_list",
             "nmls_list",
             "harm_list",
+            "rel_flatness_list",
         ]
     '''
     return (
@@ -168,6 +172,7 @@ def train(
         B_list,
         nmls_list,
         harm_list,
+        rel_flatness_list,
     )
 
 def compute_minibatch_gradient(model, criterion, dataloader, args):

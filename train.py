@@ -192,6 +192,7 @@ def main():
             "B_list",
             "nmls_list",
             "harm_list",
+            "rel_flatness_list",
         ]
         for i in range(len(lists)):
             save_npy(lists[i], f"res/{args.dataset}/{args.run_id}", save_list[i] + args.run_id)
