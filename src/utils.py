@@ -289,8 +289,8 @@ def get_nmls(model, dataloader, ndata):
                 grad_x[j, :] = grad
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
-            if torch.linalg.vector_norm(activations[i].flatten(), 2).item() == 0:
-                breakpoint()
+            # if torch.linalg.vector_norm(activations[i].flatten(), 2).item() == 0:
+            #     breakpoint()
             harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
     return nmls/ndata, harmonic/ndata
 

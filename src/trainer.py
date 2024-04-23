@@ -98,8 +98,8 @@ def train(
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             gradW, sharpness, B = get_gradW(model, dim_dataloader, args.dim_nsample)
             sharpness_list.append(sharpness)
-            acc_list.append(acc_avg.item())
-            loss_list.append(loss_avg)
+            acc_list.append(acc.item())
+            loss_list.append(loss)
             gradW_list.append(gradW)
             B_list.append(B)
 
@@ -110,10 +110,11 @@ def train(
                 if name == 'net.1.weight':  # Check if the parameter is a weight matrix (2D)
                     W0_norm = torch.linalg.matrix_norm(param, 2)
                     W_norm = W_norm + torch.linalg.matrix_norm(param, 2)**2
-                elif 'weight' in name:
+                elif isinstance(param, nn.Linear):
                     W_norm = W_norm + torch.linalg.matrix_norm(param, 2)**2
             if W0_norm is not None: W0_list.append(W0_norm.item())
             W_list.append(torch.sqrt(W_norm).item())
+            W0_list.append(W0_norm.item())
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)
@@ -153,6 +154,7 @@ def train(
             "nmls_list",
             "harm_list",
             "rel_flatness_list",
+            "W0_list",
         ]
     '''
     return (
@@ -173,6 +175,7 @@ def train(
         nmls_list,
         harm_list,
         rel_flatness_list,
+        W0_list,
     )
 
 def compute_minibatch_gradient(model, criterion, dataloader, args):
