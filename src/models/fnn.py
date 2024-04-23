@@ -27,7 +27,7 @@ class LeNet(nn.Module):
         return o
 
 class FNN(nn.Module):
-    def __init__(self, dataset, num_classes, nonlinearity, use_layer_norm=False):
+    def __init__(self, dataset, num_classes, nonlinearity, use_layer_norm=False, layers=[500,500,500,84]):
         super(FNN,self).__init__()
         self.num_classes = num_classes
         if nonlinearity == 'relu':
@@ -35,18 +35,20 @@ class FNN(nn.Module):
         elif nonlinearity == 'tanh':
             self.nonlinearity = nn.Tanh()
         if dataset == 'fashionmnist':
-            self.net = nn.Sequential(
-                            nn.LayerNorm(784,elementwise_affine=False) if use_layer_norm else nn.Identity(),
-                            nn.Linear(784,500),
-                            self.nonlinearity,
-                            nn.LayerNorm(500, elementwise_affine=False) if use_layer_norm else nn.Identity(),
-                            nn.Linear(500,500),
-                            self.nonlinearity,
-                            nn.LayerNorm(500, elementwise_affine=False) if use_layer_norm else nn.Identity(),
-                            nn.Linear(500,500),
-                            self.nonlinearity,
-                            nn.LayerNorm(500, elementwise_affine=False) if use_layer_norm else nn.Identity(),
-                            nn.Linear(500,num_classes))
+            module_list = []
+            if use_layer_norm:
+                module_list.append(nn.LayerNorm(784,elementwise_affine=False))
+            module_list.append(nn.Linear(784,layers[0]))
+            module_list.append(self.nonlinearity)
+            for i in range(len(layers)-1):
+                if use_layer_norm:
+                    module_list.append(nn.LayerNorm(layers[i],elementwise_affine=False))
+                module_list.append(nn.Linear(layers[i], layers[i+1]))
+                module_list.append(self.nonlinearity)
+            if use_layer_norm:
+                module_list.append(nn.LayerNorm(layers[-1],elementwise_affine=False))
+            module_list.append(nn.Linear(layers[-1],num_classes))
+            self.net = nn.Sequential(*module_list)
         elif dataset == 'cifar10':
             self.net = nn.Sequential(nn.Linear(3072,500),
                             nn.ReLU(),

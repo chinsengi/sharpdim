@@ -38,7 +38,7 @@ if __name__ == "__main__":
         # "A",
         "test_acc",
         "loss",
-        "W",
+        "W0"
         "quad",
         "gradW",
         "harm",
@@ -72,7 +72,7 @@ if __name__ == "__main__":
             stat["D"] = [] if stat.get("D") is None else stat["D"]
             stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
             # stat["C"].append(np.mean(data["gradW"]*data['quad']))
-            stat["D"].append(np.mean(data["sharpness"]*data["W"]*data['quad']))
+            stat["D"].append(np.mean(data["sharpness"]*data["W0"]*data['quad']))
             stat["bound"].append(np.mean(data["sharpness"]*np.sqrt(data["harm"])))
 
     df = pd.DataFrame(stat)

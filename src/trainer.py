@@ -106,12 +106,14 @@ def train(
             # calculate min input 2-norm and the norm of first layer.
             W0_norm = None
             W_norm = 0
-            for name, param in model.named_parameters():
-                if name == 'net.1.weight':  # Check if the parameter is a weight matrix (2D)
-                    W0_norm = torch.linalg.matrix_norm(param, 2)
-                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)**2
-                elif isinstance(param, nn.Linear):
-                    W_norm = W_norm + torch.linalg.matrix_norm(param, 2)**2
+            first_flag = True
+            for mod in model.modules():
+                if isinstance(mod, nn.Linear) and first_flag:  
+                    W0_norm = torch.linalg.matrix_norm(mod.weight, 2)
+                    W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
+                    first_flag = False
+                elif isinstance(mod, nn.Linear):
+                    W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
             if W0_norm is not None: W0_list.append(W0_norm.item())
             W_list.append(torch.sqrt(W_norm).item())
             W0_list.append(W0_norm.item())

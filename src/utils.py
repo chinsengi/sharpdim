@@ -359,6 +359,7 @@ def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
             break
     shape = feature_layer.shape
 
+
     layer_jacobian = torch.autograd.grad(loss, feature_layer, create_graph=True, retain_graph=True)
     drv2 = torch.empty(shape[1], shape[0], shape[0], shape[1], requires_grad=True).cuda()
     for ind, n_grd in enumerate(layer_jacobian[0].T):
