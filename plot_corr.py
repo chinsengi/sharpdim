@@ -23,7 +23,7 @@ if __name__ == "__main__":
     dataset = "fashionmnist"
     # dataset = "cifar10"
     run_ids = (
-        [i for i in range(12, 32)] +\
+        # [i for i in range(12, 32)] +\
         [i for i in range(61, 81)]
         if dataset == "fashionmnist"
         else [i for i in range(10, 30)]
@@ -38,16 +38,18 @@ if __name__ == "__main__":
         # "A",
         "test_acc",
         "loss",
-        "W0"
+        "W0",
         "quad",
         "gradW",
         "harm",
-        "acc"
+        "acc",
+        "rel_flat",
     ]
     for run_id in run_ids:
         with open(f"run/{dataset}/{run_id}/config.json") as f:
             config = json.load(f)
         data = {}
+        # print(run_id)
         try:
             for list_name in data_list:
                 if list_name is None:
@@ -56,7 +58,8 @@ if __name__ == "__main__":
                     f"res/{dataset}/{run_id}/" + list_name + "_list" + str(run_id) + ".npy"
                 )
                 data[list_name] = data[list_name][-500:]
-        except:
+        except Exception as e:
+            print(e)
             continue
         print(run_id)
         # data["test_loss"] *= 10
@@ -71,15 +74,17 @@ if __name__ == "__main__":
             # stat["C"] = [] if stat.get("C") is None else stat["C"]
             stat["D"] = [] if stat.get("D") is None else stat["D"]
             stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
+            stat["relative flatness"] = [] if stat.get("relative flatness") is None else stat["relative flatness"]
             # stat["C"].append(np.mean(data["gradW"]*data['quad']))
             stat["D"].append(np.mean(data["sharpness"]*data["W0"]*data['quad']))
             stat["bound"].append(np.mean(data["sharpness"]*np.sqrt(data["harm"])))
+            stat["relative flatness"].append(np.mean(data["rel_flat"]))
 
     df = pd.DataFrame(stat)
     df.columns = (
         ["Local dim", "Sharpness", "Log volume", "MLS", "MLS", "gen gap"]
         if dataset == "cifar10"
-        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap", "D", "bound"]
+        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap", "D", "bound", "relative flatness"]
         # else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "gen gap", "C", "D"]
     )
 
