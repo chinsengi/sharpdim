@@ -25,7 +25,6 @@ def train(
     verbose=True,
 ):
     n_iters = args.n_iters
-    batch_size = args.batch_size
     model.train()
     acc_avg, loss_avg = 0, 0
 
@@ -122,6 +121,7 @@ def train(
             quad_list.append(quad)
 
             # calculate the relative flatness
+            # This is too time consuming, so we will not calculate it for now.
             trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
             rel_flatness_list.append(trace_nm)
 

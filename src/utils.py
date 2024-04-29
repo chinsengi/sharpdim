@@ -64,6 +64,7 @@ def savefig(path="./image", filename="image", format="png", include_timestamp=Tr
 def create_dir(path="./model"):
     isExist = os.path.exists(path)
     if not isExist:
+        print(f"Creating directory: {path}")
         os.makedirs(path)
 
 
@@ -281,22 +282,24 @@ def get_nmls(model, dataloader, ndata):
         logits = model(X).reshape(1, -1)
         unregister(handles)
         for i in range(len(activations)):
-            grad_x = torch.zeros((logits.shape[1], activations[i].shape[1]))
+            grad_x = torch.zeros((logits.shape[1], activations[i].nelement()))
             for j in range(logits.shape[1]):
                 logit = logits[0][j]
                 # model.zero_grad()
-                grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[0]
+                grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[0].flatten()
                 grad_x[j, :] = grad
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
             # if torch.linalg.vector_norm(activations[i].flatten(), 2).item() == 0:
-            #     breakpoint()
-            harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+            if len(weights[i].shape) == 2:
+                harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+            else: # for conv layers the two norm is not well defined, so using the frobenius norm instead
+                harmonic +=  torch.linalg.norm(weights[i].flatten(),2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
     return nmls/ndata, harmonic/ndata
 
 def get_hook(activations, weights):
     def save_activations(module, input, output):
-        if isinstance(module, nn.Linear):
+        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
             input[0].retain_grad()
             activations.append(input[0])
             weights.append(module.weight)
@@ -304,8 +307,8 @@ def get_hook(activations, weights):
 
 def register(model, activations, weights):
     handles = []
-    for layer in model.net:
-        if isinstance(layer, nn.Linear):
+    for layer in model.modules():
+        if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
             handle = layer.register_forward_hook(get_hook(activations, weights))
             handles.append(handle)
     return handles

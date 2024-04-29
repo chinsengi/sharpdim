@@ -55,11 +55,6 @@ def get_args():
     parser.add_argument("--batch_size", type=int, default=8, help="batch size, [8]")
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument("--momentum", type=float, default="0.0", help="momentum, [0.0]")
-    parser.add_argument(
-        "--model_file",
-        default="fashionmnist.pkl",
-        help="filename to save the net, fashionmnist.pkl",
-    )
     parser.add_argument("--train_size", type=int, default=60000)
     parser.add_argument(
         "--dim_nsample",
@@ -166,7 +161,7 @@ def main():
     
     logging.info("===> Start training")
     try:
-        torch.backends.cuda.preferred_linalg_library(backend="magma")
+        # torch.backends.cuda.preferred_linalg_library(backend="magma")
         lists = train(
             net,
             criterion,
