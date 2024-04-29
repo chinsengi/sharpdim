@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import numpy as np
 
 class LeNet(nn.Module):
 
@@ -21,6 +21,7 @@ class LeNet(nn.Module):
         Args:
             x: input
         '''
+        x = x.unsqueeze(1)
         x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2))
         x = F.max_pool2d(F.relu(self.conv2(x)), (2, 2))
         x = x.view(-1, self.num_flat_features(x))
@@ -29,6 +30,12 @@ class LeNet(nn.Module):
         x = self.fc3(x)
         return x
 
+    def num_flat_features(self, x):
+        '''
+        Get the number of features in a batch of tensors `x`.
+        '''
+        size = x.size()[1:]
+        return np.prod(size)
 
 class FNN(nn.Module):
     def __init__(self, dataset, num_classes, nonlinearity, use_layer_norm=False, layers=[500,500,500]):
@@ -81,7 +88,6 @@ class FNN(nn.Module):
 
 
 def lenet():
-
     return LeNet()
 
 def fnn(dataset, num_classes, nonlinearity, use_layer_norm=False):
