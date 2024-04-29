@@ -21,10 +21,10 @@ def corrfunc(x, y, hue=None, ax=None, **kws):
 
 if __name__ == "__main__":
     dataset = "fashionmnist"
-    dataset = "cifar10"
+    # dataset = "cifar10"
     run_ids = (
         # [i for i in range(12, 32)] +\
-        [i for i in range(61, 81)]
+        [i for i in range(100,200)]
         if dataset == "fashionmnist"
         else [i for i in range(100, 200)]
     )
@@ -63,6 +63,8 @@ if __name__ == "__main__":
             continue
         print(run_id)
         # data["test_loss"] *= 10
+        if np.mean(-data["test_acc"] + data["acc"])<5:
+            continue
         for list_name in data_list[:5]:
             if stat.get(list_name) is None:
                 stat[list_name] = []
