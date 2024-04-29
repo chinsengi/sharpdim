@@ -147,7 +147,7 @@ def eval_accuracy(model, criterion, dataloader, hard_sample=False):
     loss_t, acc_t = 0.0, 0.0
     hard_samples = []
     hard_targets = []
-    for i in range(n_batchs):
+    for _ in range(n_batchs):
         inputs, targets = next(dataloader)
         inputs, targets = inputs.cuda(), targets.cuda()
 
