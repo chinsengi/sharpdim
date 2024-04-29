@@ -122,8 +122,8 @@ def train(
 
             # calculate the relative flatness
             # This is too time consuming, so we will not calculate it for now.
-            # trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
-            # rel_flatness_list.append(trace_nm)
+            trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
+            rel_flatness_list.append(trace_nm)
 
 
         if (iter_now+1) % 10000 == 0 and verbose:

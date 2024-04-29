@@ -64,6 +64,7 @@ def savefig(path="./image", filename="image", format="png", include_timestamp=Tr
 def create_dir(path="./model"):
     isExist = os.path.exists(path)
     if not isExist:
+        print(f"Creating directory: {path}")
         os.makedirs(path)
 
 

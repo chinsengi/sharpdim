@@ -21,12 +21,12 @@ def corrfunc(x, y, hue=None, ax=None, **kws):
 
 if __name__ == "__main__":
     dataset = "fashionmnist"
-    # dataset = "cifar10"
+    dataset = "cifar10"
     run_ids = (
         # [i for i in range(12, 32)] +\
         [i for i in range(61, 81)]
         if dataset == "fashionmnist"
-        else [i for i in range(10, 30)]
+        else [i for i in range(100, 200)]
     )
     stat = {}
     data_list = [
@@ -34,7 +34,7 @@ if __name__ == "__main__":
         "sharpness",
         "logvol",
         "A",
-        "nmls" if dataset == "fashionmnist" else None,
+        "nmls",
         # "A",
         "test_acc",
         "loss",
@@ -43,13 +43,13 @@ if __name__ == "__main__":
         "gradW",
         "harm",
         "acc",
-        "rel_flat",
+        "rel_flatness",
     ]
     for run_id in run_ids:
         with open(f"run/{dataset}/{run_id}/config.json") as f:
             config = json.load(f)
         data = {}
-        # print(run_id)
+        print(run_id)
         try:
             for list_name in data_list:
                 if list_name is None:
@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 data[list_name] = np.load(
                     f"res/{dataset}/{run_id}/" + list_name + "_list" + str(run_id) + ".npy"
                 )
-                data[list_name] = data[list_name][-500:]
+                data[list_name] = data[list_name][-1]
         except Exception as e:
             print(e)
             continue
@@ -70,19 +70,22 @@ if __name__ == "__main__":
             stat[list_name].append(np.mean(data[list_name]))
         stat["gen gap"] = [] if stat.get("gen gap") is None else stat["gen gap"]
         stat["gen gap"].append(np.mean(-data["test_acc"] + data["acc"]))
+        
+        # tightness for fashionmnist
         if dataset=="fashionmnist":
             # stat["C"] = [] if stat.get("C") is None else stat["C"]
             stat["D"] = [] if stat.get("D") is None else stat["D"]
-            stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
-            stat["relative flatness"] = [] if stat.get("relative flatness") is None else stat["relative flatness"]
             # stat["C"].append(np.mean(data["gradW"]*data['quad']))
             stat["D"].append(np.mean(data["sharpness"]*data["W0"]*data['quad']))
-            stat["bound"].append(np.mean(data["sharpness"]*np.sqrt(data["harm"])))
-            stat["relative flatness"].append(np.mean(data["rel_flat"]))
 
+        stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
+        stat["relative flatness"] = [] if stat.get("relative flatness") is None else stat["relative flatness"]
+        stat["bound"].append(np.mean(data["sharpness"]*np.sqrt(data["harm"])))
+        stat["relative flatness"].append(np.mean(data["rel_flatness"]))
+        
     df = pd.DataFrame(stat)
     df.columns = (
-        ["Local dim", "Sharpness", "Log volume", "MLS", "MLS", "gen gap"]
+        ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap",  "bound", "relative flatness"]
         if dataset == "cifar10"
         else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap", "D", "bound", "relative flatness"]
         # else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "gen gap", "C", "D"]
@@ -106,5 +109,5 @@ if __name__ == "__main__":
     # )
     g = sns.pairplot(df, height=3, plot_kws={"s": 80})
     g.map_lower(corrfunc)
-    savefig("./image/corr", f"{dataset}corr", format="pdf", include_timestamp=True)
+    savefig(f"./image/corr/{dataset}", f"{dataset}corr", format="pdf", include_timestamp=True)
     # breakpoint()
