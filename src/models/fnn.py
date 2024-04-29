@@ -4,27 +4,31 @@ import torch.nn.functional as F
 
 
 class LeNet(nn.Module):
+
+    # network structure
     def __init__(self):
-        super(LeNet,self).__init__()
-        self.conv1 = nn.Conv2d(1,6,5,stride=1) # 28-5+1=24
-        self.conv2 = nn.Conv2d(6,16,5,stride=1) # 12-5+1=8
-        self.fc1 = nn.Linear(4*4*16,200)
-        self.fc2 = nn.Linear(200,10)
+        super(LeNet, self).__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5, padding=2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1   = nn.Linear(16*5*5, 120)
+        self.fc2   = nn.Linear(120, 84)
+        self.fc3   = nn.Linear(84, 10)
 
-    def forward(self,x):
-        if x.ndimension()==3:
-            x = x.unsqueeze(0)
-        o = F.relu(self.conv1(x))
-        o = F.avg_pool2d(o,2,2)
+    def forward(self, x):
+        '''
+        One forward pass through the network.
+        
+        Args:
+            x: input
+        '''
+        x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2))
+        x = F.max_pool2d(F.relu(self.conv2(x)), (2, 2))
+        x = x.view(-1, self.num_flat_features(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
-        o = F.relu(self.conv2(o))
-        o = F.avg_pool2d(o,2,2)
-
-        o = o.view(o.shape[0],-1)
-        o = self.fc1(o)
-        o = F.relu(o)
-        o = self.fc2(o)
-        return o
 
 class FNN(nn.Module):
     def __init__(self, dataset, num_classes, nonlinearity, use_layer_norm=False, layers=[500,500,500,84]):
