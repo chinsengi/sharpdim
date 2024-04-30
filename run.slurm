@@ -9,7 +9,7 @@
 #SBATCH --partition=gpu-2080ti
 # SBATCH --partition=ckpt
 #SBATCH --nodes=4
-#SBATCH --mem=8G
+#SBATCH --mem=16G
 #SBATCH --gres=gpu:1
 #SBATCH --time=2-00:00:00
 
@@ -21,15 +21,17 @@ declare -a bs=("8" "20" "32")
 # declare -a lr=(".1")
 # declare -a bs=("20")
 
-RUNID=100
+RUNID=200
 NETWORK="fnn"
 DATASET="fashionmnist"
-# NETWORK="vgg"
-# DATASET="cifar10"
+NETWORK="vgg"
+NETWORK="lenet"
+DATASET="cifar10"
 # N_ITERS="1000000"
 N_ITERS="750000" 
-# N_ITERS="500000" 
+N_ITERS="500000" 
 CAL_FREQ="750000"
+CAL_FREQ="500000"
 REPEAT=20
 for ((k = 1; k <= $REPEAT; k++)); do
     for i in ${lr[@]}; do

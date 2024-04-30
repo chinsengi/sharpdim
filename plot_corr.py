@@ -21,7 +21,7 @@ def corrfunc(x, y, hue=None, ax=None, **kws):
 
 if __name__ == "__main__":
     dataset = "fashionmnist"
-    # dataset = "cifar10"
+    dataset = "cifar10"
     run_ids = (
         # [i for i in range(12, 32)] +\
         [i for i in range(100,200)]
@@ -72,6 +72,7 @@ if __name__ == "__main__":
             stat[list_name].append(np.mean(data[list_name]))
         stat["gen gap"] = [] if stat.get("gen gap") is None else stat["gen gap"]
         stat["gen gap"].append(np.mean(-data["test_acc"] + data["acc"]))
+        # stat["gen gap"].append(np.mean(data["test_acc"]))
         
         # tightness for fashionmnist
         if dataset=="fashionmnist":
@@ -111,5 +112,5 @@ if __name__ == "__main__":
     # )
     g = sns.pairplot(df, height=3, plot_kws={"s": 80})
     g.map_lower(corrfunc)
-    savefig(f"./image/corr/{dataset}", f"{dataset}corr", format="pdf", include_timestamp=True)
+    savefig(f"./image/corr/{dataset}", f"{dataset}_{config['network']}corr", format="pdf", include_timestamp=True)
     # breakpoint()

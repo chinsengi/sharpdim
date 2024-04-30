@@ -97,7 +97,6 @@ def train(
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             gradW, sharpness, B = get_gradW(model, dim_dataloader, args.dim_nsample)
             sharpness_list.append(sharpness)
-            breakpoint()
             acc_list.append(acc_avg.item())
             loss_list.append(loss)
             gradW_list.append(gradW)
