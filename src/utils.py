@@ -9,7 +9,7 @@ import torch.nn as nn
 import logging
 import random
 from .models.vgg import vgg11, vgg11_big
-from .models.fnn import fnn, lenet
+from .models.fnn import fnn, lenet, lenet5
 from .models.resnet import resnet
 from .data import DataLoader, load_fmnist, load_cifar10
 from .linalg import eigen_variance, eigen_hessian
@@ -83,6 +83,8 @@ def load_net(network, dataset, num_classes, nonlinearity, use_layer_norm=False):
         if dataset != "fashionmnist":
             raise ValueError("LeNet is only supported for input of size 28x28")
         return lenet()
+    elif network == "lenet5":
+        return lenet5(num_classes)
     else:
         raise ValueError("Network %s is not supported" % (network))
 
