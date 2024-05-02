@@ -98,7 +98,7 @@ def train(
             gradW, sharpness, B = get_gradW(model, dim_dataloader, args.dim_nsample)
             sharpness_list.append(sharpness)
             acc_list.append(acc_avg.item())
-            loss_list.append(loss)
+            loss_list.append(loss_avg.item())
             gradW_list.append(gradW)
             B_list.append(B)
 
@@ -107,12 +107,13 @@ def train(
             W_norm = 0
             first_flag = True
             for mod in model.modules():
-                if isinstance(mod, nn.Linear) and first_flag:  
-                    W0_norm = torch.linalg.matrix_norm(mod.weight, 2)
-                    W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
-                    first_flag = False
-                elif isinstance(mod, nn.Linear):
-                    W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
+                if (isinstance(mod, nn.Linear) or isinstance(mod, nn.Conv2d)):  
+                    if first_flag:
+                        W0_norm = torch.linalg.matrix_norm(mod.weight, 2)
+                        W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
+                        first_flag = False
+                    else:
+                        W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
             if W0_norm is not None: W0_list.append(W0_norm.item())
             W_list.append(torch.sqrt(W_norm).item())
             W0_list.append(W0_norm.item())

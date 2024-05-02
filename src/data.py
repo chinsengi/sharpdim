@@ -49,37 +49,38 @@ def load_fmnist(training_size, batch_size=100):
     return train_loader, test_loader
 
 
-def load_cifar10(training_size, batch_size=100):
+def load_cifar10(training_size, batch_size=100, shrink=True):
     """
     load cifar10 dataset. Notice that here we only use examples
     corresponding to label 0 and 1. Thus the training_size is at 
     most 10000.
     """
     train_set = dsets.CIFAR10('data/cifar10', train=True, download=True)
-    train_X,train_y = modify_cifar_data(train_set.data, train_set.targets, training_size)
+    train_X,train_y = modify_cifar_data(train_set.data, train_set.targets, training_size, shrink=shrink)
     train_loader = DataLoader(train_X, train_y, batch_size)
 
     test_set = dsets.CIFAR10('data/cifar10', train=False, download=True)
-    test_X,test_y = modify_cifar_data(test_set.data, test_set.targets)
+    test_X,test_y = modify_cifar_data(test_set.data, test_set.targets, shrink=shrink)
     test_loader = DataLoader(test_X, test_y, batch_size)
 
     return train_loader, test_loader
 
 
-def modify_cifar_data(X, y, n_samples=-1):
+def modify_cifar_data(X, y, n_samples=-1, shrink=True):
     X = torch.from_numpy(X.transpose([0,3,1,2]))
     y = torch.LongTensor(y)
 
-    X_t = torch.Tensor(50000,3,32,32)
-    y_t = torch.LongTensor(50000)
-    idx = 0
-    for i in range(len(y)):
-        if y[i] == 0 or y[i] == 1:
-            y_t[idx] = y[i]
-            X_t[idx,:,:,:] = X[i,:,:,:]
-            idx += 1
-    X = X_t[0:idx]
-    y = y_t[0:idx] 
+    if shrink:
+        X_t = torch.Tensor(50000,3,32,32)
+        y_t = torch.LongTensor(50000)
+        idx = 0
+        for i in range(len(y)):
+            if y[i] == 0 or y[i] == 1:
+                y_t[idx] = y[i]
+                X_t[idx,:,:,:] = X[i,:,:,:]
+                idx += 1
+        X = X_t[0:idx]
+        y = y_t[0:idx] 
 
     if n_samples > 1:
         X = X[0:n_samples]

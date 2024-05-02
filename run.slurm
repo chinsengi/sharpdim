@@ -21,7 +21,7 @@ declare -a bs=("8" "20" "32")
 # declare -a lr=(".1")
 # declare -a bs=("20")
 
-RUNID=200
+RUNID=300
 NETWORK="fnn"
 DATASET="fashionmnist"
 NETWORK="vgg"
@@ -29,9 +29,9 @@ NETWORK="lenet5"
 DATASET="cifar10"
 # N_ITERS="1000000"
 N_ITERS="750000" 
-N_ITERS="500000" 
+# N_ITERS="500000" 
 CAL_FREQ="750000"
-CAL_FREQ="500000"
+# CAL_FREQ="500000"
 REPEAT=20
 for ((k = 1; k <= $REPEAT; k++)); do
     for i in ${lr[@]}; do

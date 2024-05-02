@@ -139,7 +139,7 @@ def main():
         criterion = torch.nn.CrossEntropyLoss()
 
     train_loader, test_loader = load_data(
-        args.dataset, args.train_size, batch_size=args.batch_size
+        args.dataset, args.train_size, batch_size=args.batch_size, shrink=True
     )
     # args.n_iters = args.n_epochs * len(train_loader)
 

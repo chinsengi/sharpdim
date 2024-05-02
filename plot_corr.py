@@ -21,12 +21,12 @@ def corrfunc(x, y, hue=None, ax=None, **kws):
 
 if __name__ == "__main__":
     dataset = "fashionmnist"
-    dataset = "cifar10"
+    # dataset = "cifar10"
     run_ids = (
         # [i for i in range(12, 32)] +\
         [i for i in range(100,200)]
         if dataset == "fashionmnist"
-        else [i for i in range(100, 200)]
+        else [i for i in range(300, 400)]
     )
     stat = {}
     data_list = [
@@ -38,7 +38,9 @@ if __name__ == "__main__":
         # "A",
         "test_acc",
         "loss",
+        "test_loss",
         "W0",
+        "W",
         "quad",
         "gradW",
         "harm",
@@ -70,9 +72,12 @@ if __name__ == "__main__":
                 stat[list_name] = []
             # result = stats.pearsonr(data[list_name], data["test_loss"])
             stat[list_name].append(np.mean(data[list_name]))
+        # stat["INMLS"] = [] if stat.get("INMLS") is None else stat["INMLS"]
+        # stat["INMLS"].append(np.mean(data['sharpness']*data['W']))
         stat["gen gap"] = [] if stat.get("gen gap") is None else stat["gen gap"]
         stat["gen gap"].append(np.mean(-data["test_acc"] + data["acc"]))
-        # stat["gen gap"].append(np.mean(data["test_acc"]))
+        # stat["gen gap"].append(np.mean(data["test_loss"] - data["loss"]))
+        # stat["gen gap"].append(np.mean(data["test_acc"])) 
         
         # tightness for fashionmnist
         if dataset=="fashionmnist":
@@ -88,9 +93,9 @@ if __name__ == "__main__":
         
     df = pd.DataFrame(stat)
     df.columns = (
-        ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap",  "bound", "relative flatness"]
+        ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "INMLS", "gen gap",  "bound", "relative flatness"]
         if dataset == "cifar10"
-        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap", "D", "bound", "relative flatness"]
+        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "INMLS", "gen gap", "D", "bound", "relative flatness"]
         # else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "gen gap", "C", "D"]
     )
 

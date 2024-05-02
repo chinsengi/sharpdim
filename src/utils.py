@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 import logging
 import random
-from .models.vgg import vgg11, vgg11_big
-from .models.fnn import fnn, lenet, lenet5
+from .models.vgg import vgg11, vgg11_big, VGG
+from .models.fnn import LeNet5, fnn, lenet, lenet5
 from .models.resnet import resnet
 from .data import DataLoader, load_fmnist, load_cifar10
 from .linalg import eigen_variance, eigen_hessian
@@ -89,11 +89,11 @@ def load_net(network, dataset, num_classes, nonlinearity, use_layer_norm=False):
         raise ValueError("Network %s is not supported" % (network))
 
 
-def load_data(dataset, num_train, batch_size):
+def load_data(dataset, num_train, batch_size, shrink=False):
     if dataset == "fashionmnist":
         return load_fmnist(num_train, batch_size)
     elif dataset == "cifar10":
-        return load_cifar10(num_train, batch_size)
+        return load_cifar10(num_train, batch_size, shrink=shrink)
     elif dataset == "1dfunction":
         raise NotImplementedError("Not implemented")
         # return load_1dfcn(train_per_class, batch_size)
@@ -297,10 +297,12 @@ def get_nmls(model, dataloader, ndata):
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
             # if torch.linalg.vector_norm(activations[i].flatten(), 2).item() == 0:
-            if len(weights[i].shape) == 2:
-                harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
-            else: # for conv layers the two norm is not well defined, so using the frobenius norm instead
+            breakpoint()
+            if isinstance(model, LeNet5) or isinstance(model, VGG):
+                # for conv layers the two norm is not well defined, so using the frobenius norm instead
                 harmonic +=  torch.linalg.norm(weights[i].flatten(),2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+            else:
+                harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
     return nmls/ndata, harmonic/ndata
 
 def get_hook(activations, weights):
