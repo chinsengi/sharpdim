@@ -71,11 +71,31 @@ def get_args():
         action="store_true",
         help="whether to use learning rate scheduler",
     )
-    parser.add_argument("--cal_freq", type=int, default=100, help="how many data points within per epoch")
-    parser.add_argument("--hard_sample", action="store_true", help="whether to use hard samples to compute dimension")
-    parser.add_argument("--test_sample", action="store_true", help="whether to use test samples to compute dimension")
-    parser.add_argument("--use_layer_norm", action="store_true", help="whether to use layer norm in fnn")
-    parser.add_argument("--nonlinearity", default="tanh", help="nonlinearity of FFN, [tanh] | relu")
+    parser.add_argument(
+        "--cal_freq",
+        type=int,
+        default=100,
+        help="how many data points within per epoch",
+    )
+    parser.add_argument(
+        "--hard_sample",
+        action="store_true",
+        help="whether to use hard samples to compute dimension",
+    )
+    parser.add_argument(
+        "--test_sample",
+        action="store_true",
+        help="whether to use test samples to compute dimension",
+    )
+    parser.add_argument(
+        "--use_layer_norm", action="store_true", help="whether to use layer norm in fnn"
+    )
+    parser.add_argument(
+        "--nonlinearity", default="tanh", help="nonlinearity of FFN, [tanh] | relu"
+    )
+    parser.add_argument(
+        "--shrink", action="store_true", help="whether to shrink the  cifar10 dataset"
+    )
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.dataset, args.run_id)
@@ -127,7 +147,7 @@ def main():
     if not args.random:
         set_seed(args.seed)
     else:
-        args.seed = random.randint(0,10000)
+        args.seed = random.randint(0, 10000)
         set_seed(args.seed)
     print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
@@ -139,7 +159,7 @@ def main():
         criterion = torch.nn.CrossEntropyLoss()
 
     train_loader, test_loader = load_data(
-        args.dataset, args.train_size, batch_size=args.batch_size, shrink=True
+        args.dataset, args.train_size, batch_size=args.batch_size, shrink=args.shrink
     )
     # args.n_iters = args.n_epochs * len(train_loader)
 
@@ -150,7 +170,13 @@ def main():
     with open(os.path.join(args.log, "config.json"), "w") as f:
         f.write(config)
 
-    net = load_net(args.network, args.dataset, args.num_classes,args.nonlinearity, args.use_layer_norm)
+    net = load_net(
+        args.network,
+        args.dataset,
+        args.num_classes,
+        args.nonlinearity,
+        args.use_layer_norm,
+    )
     net = net.to(args.device)
     optimizer = get_optimizer(net, args)
     logging.info(optimizer)
@@ -158,7 +184,6 @@ def main():
     logging.info("===> Architecture:")
     logging.info(net)
 
-    
     logging.info("===> Start training")
     try:
         # torch.backends.cuda.preferred_linalg_library(backend="magma")
@@ -189,10 +214,14 @@ def main():
             "nmls_list",
             "harm_list",
             "rel_flatness_list",
-            "W0_list"
+            "W0_list",
         ]
         for i in range(len(lists)):
-            save_npy(lists[i], f"res/{args.dataset}/{args.run_id}", save_list[i] + args.run_id)
+            save_npy(
+                lists[i],
+                f"res/{args.dataset}/{args.run_id}",
+                save_list[i] + args.run_id,
+            )
 
         train_loss, train_accuracy, _ = eval_accuracy(net, criterion, train_loader)
         test_loss, test_accuracy, _ = eval_accuracy(net, criterion, test_loader)

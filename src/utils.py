@@ -9,7 +9,7 @@ import torch.nn as nn
 import logging
 import random
 from .models.vgg import vgg11, vgg11_big, VGG
-from .models.fnn import LeNet5, fnn, lenet, lenet5
+from .models.fnn import LeNet5, fnn, lenet, lenet5, LeNet
 from .models.resnet import resnet
 from .data import DataLoader, load_fmnist, load_cifar10
 from .linalg import eigen_variance, eigen_hessian
@@ -32,7 +32,7 @@ def load(path, model, optimizer=None):
         if optimizer is not None:
             optimizer.load_state_dict(state[1])
     else:
-        logging.warning("weight file not found, training from scratch")
+        logging.warning(f"weight file not found from {path}, training from scratch")
 
 
 def save_model(model, optimizer, path, filename):
@@ -202,6 +202,8 @@ def eval_output(model, dataloader):
     ndata: number of data points
     k: order of norm (the inequality in the paper is for k=1)
 """
+
+
 def get_gradW(model, dataloader, ndata, k=1):
     assert dataloader.batch_size == 1
     gradtheta = 0
@@ -236,14 +238,16 @@ def get_gradW(model, dataloader, ndata, k=1):
 def get_first_layer_weight(model):
     for param in model.parameters():
         if len(param.shape) == 2:  # Check if the parameter is a weight matrix (2D)
-           return param
+            return param
         break
     return None
 
 
-'''
+"""
 Calculation of all metric in the feature space
-'''
+"""
+
+
 def get_dim(model, dataloader, ndata):
     assert dataloader.batch_size == 1
     dim = 0
@@ -281,7 +285,8 @@ def get_nmls(model, dataloader, ndata):
     for _ in range(ndata):
         activations = []
         weights = []
-        handles = register(model, activations, weights)
+        output_numel = []
+        handles = register(model, activations, weights, output_numel)
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True
@@ -292,38 +297,66 @@ def get_nmls(model, dataloader, ndata):
             for j in range(logits.shape[1]):
                 logit = logits[0][j]
                 # model.zero_grad()
-                grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[0].flatten()
+                grad = torch.autograd.grad(logit, activations[i], retain_graph=True)[
+                    0
+                ].flatten()
                 grad_x[j, :] = grad
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
-            # if torch.linalg.vector_norm(activations[i].flatten(), 2).item() == 0:
-            breakpoint()
-            if isinstance(model, LeNet5) or isinstance(model, VGG):
+            eps = 0.0001
+            if (
+                isinstance(model, LeNet5)
+                or isinstance(model, VGG)
+                or isinstance(model, LeNet)
+            ):
                 # for conv layers the two norm is not well defined, so using the frobenius norm instead
-                harmonic +=  torch.linalg.norm(weights[i].flatten(),2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+                if len(weights[i].shape) == 2:
+                    output_numel[i] = 1
+                harmonic += (
+                    (torch.linalg.norm(weights[i].flatten(), 2).item() ** 2)
+                    * output_numel[i]
+                    # / (
+                    #     torch.linalg.vector_norm(activations[i].flatten(), 2).item()
+                    #     ** 2
+                    #     + eps
+                    # )
+                )
             else:
-                harmonic +=  torch.linalg.matrix_norm(weights[i],2).item() ** 2/torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
-    return nmls/ndata, harmonic/ndata
+                harmonic += (torch.linalg.matrix_norm(weights[i], 2).item() ** 2 
+                    # / (
+                    #     torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+                    #     + eps
+                    # )
+                )
+    return nmls / ndata, harmonic / ndata
 
-def get_hook(activations, weights):
+
+def get_hook(activations, weights, output_numel):
     def save_activations(module, input, output):
         if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
             input[0].retain_grad()
             activations.append(input[0])
             weights.append(module.weight)
+            output_numel.append(output.numel())
+
     return save_activations
 
-def register(model, activations, weights):
+
+def register(model, activations, weights, output_numel):
     handles = []
     for layer in model.modules():
         if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
-            handle = layer.register_forward_hook(get_hook(activations, weights))
+            handle = layer.register_forward_hook(
+                get_hook(activations, weights, output_numel)
+            )
             handles.append(handle)
     return handles
+
 
 def unregister(handles):
     for handle in handles:
         handle.remove()
+
 
 def cal_logvol(eig_val, dim):
     # return np.sum(np.log(eig_val[:math.floor(dim.item())])) / 2
@@ -345,9 +378,10 @@ def quad_mean(dataloader, ndata):
         quad += 1 / torch.linalg.vector_norm(X.flatten(), 2).item() ** 2
     return np.sqrt(quad / ndata)
 
+
 # adapted from https://github.com/kampmichael/RelativeFlatnessAndGeneralization/blob/0baa1f0c87db2860e1a4d8f675ff0347a8872b3f/CorrelationFlatnessGeneralization/utils.py
 def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
-    loss = torch.tensor(0.).cuda()
+    loss = torch.tensor(0.0).cuda()
     for _ in range(ndata):
         X, y = next(dataloader)
         X, y = X.cuda(), y.cuda()
@@ -356,7 +390,7 @@ def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
         loss += E
     loss /= ndata
 
-    num_linear_layers = 0   
+    num_linear_layers = 0
     for p in model.modules():
         if isinstance(p, nn.Linear):
             num_linear_layers += 1
@@ -370,12 +404,17 @@ def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
             break
     shape = feature_layer.shape
 
-
-    layer_jacobian = torch.autograd.grad(loss, feature_layer, create_graph=True, retain_graph=True)
-    drv2 = torch.empty(shape[1], shape[0], shape[0], shape[1], requires_grad=True).cuda()
+    layer_jacobian = torch.autograd.grad(
+        loss, feature_layer, create_graph=True, retain_graph=True
+    )
+    drv2 = torch.empty(
+        shape[1], shape[0], shape[0], shape[1], requires_grad=True
+    ).cuda()
     for ind, n_grd in enumerate(layer_jacobian[0].T):
         for neuron_j in range(shape[0]):
-            drv2[ind][neuron_j] = torch.autograd.grad(n_grd[neuron_j].cuda(), feature_layer, retain_graph=True)[0].cuda()
+            drv2[ind][neuron_j] = torch.autograd.grad(
+                n_grd[neuron_j].cuda(), feature_layer, retain_graph=True
+            )[0].cuda()
     # print("got hessian")
 
     trace_neuron_measure = 0.0
@@ -384,11 +423,13 @@ def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
         neuron_i_weights = feature_layer[neuron_i, :].data.cpu().numpy()
         for neuron_j in range(shape[0]):
             neuron_j_weights = feature_layer[neuron_j, :].data.cpu().numpy()
-            hessian = drv2[:,neuron_j,neuron_i,:]
+            hessian = drv2[:, neuron_j, neuron_i, :]
             trace = np.trace(hessian.data.cpu().numpy())
             trace_neuron_measure += neuron_i_weights.dot(neuron_j_weights) * trace
             if neuron_j == neuron_i:
                 eigenvalues = np.linalg.eigvalsh(hessian.data.cpu().numpy())
-                maxeigen_neuron_measure += neuron_i_weights.dot(neuron_j_weights) * eigenvalues[-1]
+                maxeigen_neuron_measure += (
+                    neuron_i_weights.dot(neuron_j_weights) * eigenvalues[-1]
+                )
 
     return trace_neuron_measure, maxeigen_neuron_measure

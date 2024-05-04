@@ -3,6 +3,8 @@ import numpy as np
 import logging
 import torch
 from tqdm import tqdm
+
+from .models.fnn import FNN
 from .utils import (
     get_dim,
     accuracy,
@@ -98,25 +100,34 @@ def train(
             gradW, sharpness, B = get_gradW(model, dim_dataloader, args.dim_nsample)
             sharpness_list.append(sharpness)
             acc_list.append(acc_avg.item())
-            loss_list.append(loss_avg.item())
+            loss_list.append(loss_avg)
             gradW_list.append(gradW)
             B_list.append(B)
 
             # calculate min input 2-norm and the norm of first layer.
             W0_norm = None
             W_norm = 0
-            first_flag = True
-            for mod in model.modules():
-                if (isinstance(mod, nn.Linear) or isinstance(mod, nn.Conv2d)):  
-                    if first_flag:
-                        W0_norm = torch.linalg.matrix_norm(mod.weight, 2)
-                        W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
-                        first_flag = False
-                    else:
-                        W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
-            if W0_norm is not None: W0_list.append(W0_norm.item())
-            W_list.append(torch.sqrt(W_norm).item())
-            W0_list.append(W0_norm.item())
+            # TODO: This is wrong for conv layers, need to be fixed. 
+            # first_flag = True
+            # for mod in model.modules():
+            #     if not isinstance(mod, nn.Linear) and not isinstance(mod, nn.Conv2d):
+            #         continue
+            #     if first_flag:
+            #         if isinstance(model, FNN):
+            #             W0_norm = torch.linalg.matrix_norm(mod.weight, 2)
+            #             W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
+            #         else:
+            #             W0_norm = torch.linalg.vector_norm(mod.weight.flatten(), 2)
+            #             W_norm = W_norm + torch.linalg.vector_norm(mod.weight.flatten(), 2)**2
+            #         first_flag = False
+            #     else:
+            #         if isinstance(model, FNN):
+            #             W_norm = W_norm + torch.linalg.matrix_norm(mod.weight, 2)**2
+            #         else:
+            #             W_norm = W_norm + torch.linalg.vector_norm(mod.weight.flatten(), 2)**2
+            # if W0_norm is not None: W0_list.append(W0_norm.item())
+            # W_list.append(torch.sqrt(W_norm).item())
+            # W0_list.append(W0_norm.item())
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             quad = quad_mean(dim_dataloader, args.dim_nsample) 
             quad_list.append(quad)

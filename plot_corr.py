@@ -22,11 +22,10 @@ def corrfunc(x, y, hue=None, ax=None, **kws):
 if __name__ == "__main__":
     dataset = "fashionmnist"
     # dataset = "cifar10"
+    start_id = 100
+    end_id =200
     run_ids = (
-        # [i for i in range(12, 32)] +\
-        [i for i in range(100,200)]
-        if dataset == "fashionmnist"
-        else [i for i in range(300, 400)]
+        [i for i in range(start_id, end_id)]
     )
     stat = {}
     data_list = [
@@ -48,11 +47,11 @@ if __name__ == "__main__":
         "rel_flatness",
     ]
     for run_id in run_ids:
-        with open(f"run/{dataset}/{run_id}/config.json") as f:
-            config = json.load(f)
-        data = {}
-        print(run_id)
         try:
+            with open(f"run/{dataset}/{run_id}/config.json") as f:
+                config = json.load(f)
+            data = {}
+            print(run_id)
             for list_name in data_list:
                 if list_name is None:
                     continue
@@ -88,14 +87,14 @@ if __name__ == "__main__":
 
         stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
         stat["relative flatness"] = [] if stat.get("relative flatness") is None else stat["relative flatness"]
-        stat["bound"].append(np.mean(data["sharpness"]*np.sqrt(data["harm"])))
+        stat["bound"].append(np.mean(data["sharpness"]*data["W"]))
         stat["relative flatness"].append(np.mean(data["rel_flatness"]))
         
     df = pd.DataFrame(stat)
     df.columns = (
-        ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "INMLS", "gen gap",  "bound", "relative flatness"]
+        ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap",  "bound", "relative flatness"]
         if dataset == "cifar10"
-        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "INMLS", "gen gap", "D", "bound", "relative flatness"]
+        else ["Local dim", "Sharpness", "Log volume", "MLS", "NMLS", "gen gap", "D", "bound", "relative flatness"]
         # else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "gen gap", "C", "D"]
     )
 
@@ -117,5 +116,5 @@ if __name__ == "__main__":
     # )
     g = sns.pairplot(df, height=3, plot_kws={"s": 80})
     g.map_lower(corrfunc)
-    savefig(f"./image/corr/{dataset}", f"{dataset}_{config['network']}corr", format="pdf", include_timestamp=True)
+    savefig(f"./image/corr/{dataset}", f"{dataset}_{config['network']}corr_{start_id}_to_{end_id}", format="pdf", include_timestamp=True)
     # breakpoint()
