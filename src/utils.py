@@ -4,6 +4,7 @@ import os
 import time
 from matplotlib import pyplot as plt
 import numpy as np
+from regex import W
 import torch
 import torch.nn as nn
 import logging
@@ -32,6 +33,7 @@ def load(path, model, optimizer=None):
         if optimizer is not None:
             optimizer.load_state_dict(state[1])
     else:
+        raise FileNotFoundError(f"weight file not found from {path}")
         logging.warning(f"weight file not found from {path}, training from scratch")
 
 
@@ -236,10 +238,9 @@ def get_gradW(model, dataloader, ndata, k=1):
 
 
 def get_first_layer_weight(model):
-    for param in model.parameters():
-        if len(param.shape) == 2:  # Check if the parameter is a weight matrix (2D)
-            return param
-        break
+    for layer in model.modules():
+        if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
+            return layer.weight
     return None
 
 
@@ -282,6 +283,9 @@ def get_nmls(model, dataloader, ndata):
     nmls = 0
     harmonic = 0
     assert dataloader.batch_size == 1
+    W_norm = None
+    W0_norm = None
+    norm_calculated = False
     for _ in range(ndata):
         activations = []
         weights = []
@@ -312,23 +316,28 @@ def get_nmls(model, dataloader, ndata):
                 # for conv layers the two norm is not well defined, so using the frobenius norm instead
                 if len(weights[i].shape) == 2:
                     output_numel[i] = 1
-                harmonic += (
-                    (torch.linalg.norm(weights[i].flatten(), 2).item() ** 2)
-                    * output_numel[i]
-                    # / (
-                    #     torch.linalg.vector_norm(activations[i].flatten(), 2).item()
-                    #     ** 2
-                    #     + eps
-                    # )
+                cur_norm = (
+                    torch.linalg.norm(weights[i].flatten(), 2) ** 2
+                ) * output_numel[i]
+                harmonic += cur_norm / (
+                    torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+                    + eps
                 )
             else:
-                harmonic += (torch.linalg.matrix_norm(weights[i], 2).item() ** 2 
-                    # / (
-                    #     torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
-                    #     + eps
-                    # )
+                cur_norm = torch.linalg.matrix_norm(weights[i], 2) ** 2
+                harmonic += cur_norm / (
+                    torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
+                    + eps
                 )
-    return nmls / ndata, harmonic / ndata
+            if not norm_calculated:
+                if i == 0:
+                    breakpoint()
+                    W0_norm = torch.sqrt(cur_norm)
+                    W_norm = cur_norm
+                else:
+                    W_norm = W_norm + cur_norm
+        norm_calculated = True
+    return nmls / ndata, harmonic / ndata, W0_norm, torch.sqrt(W_norm)
 
 
 def get_hook(activations, weights, output_numel):

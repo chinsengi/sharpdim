@@ -126,7 +126,7 @@ if __name__ == "__main__":
         df1['iteration (x5000)'] = df1['iteration'] //5000
         # df1 = df1[df1["iteration (x1000)"] <= 200]
         # breakpoint()
-        sns.set(font_scale=3)
+        sns.set_theme(font_scale=3)
         sns.set_style("whitegrid")
         g = sns.relplot(
             data=df1,
