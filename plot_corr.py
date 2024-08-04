@@ -32,7 +32,6 @@ if __name__ == "__main__":
         "logvol",
         "A",
         "nmls",
-        # "A",
         "test_acc",
         "loss",
         "test_loss",
@@ -143,4 +142,3 @@ if __name__ == "__main__":
         format="pdf",
         include_timestamp=True,
     )
-    # breakpoint()

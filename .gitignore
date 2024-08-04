@@ -11,3 +11,4 @@ run/
 *.sh
 *.slurm
 image/
+test.py

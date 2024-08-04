@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # dataset_list = ["cifar10"]
     # dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
-        run_id = 42
+        run_id = 200
         with open(f"run/{dataset}/{run_id}/config.json") as f:
             config = json.load(f)
         data_list = [
@@ -35,6 +35,7 @@ if __name__ == "__main__":
             )
         list_len = len(data["A_list"])
         sample_freq = config["cal_freq"]
+        breakpoint()
         df = pd.DataFrame(
             {
                 "A": data["A_list"],
@@ -53,7 +54,7 @@ if __name__ == "__main__":
             value_name="Value",
         )
         df_plot = df_plot[df_plot["iteration (x5000)"] < 150]
-        sns.set(font_scale=2)
+        sns.set_theme(font_scale=2)
         sns.set_style("whitegrid")
         g = sns.relplot(
             data=df_plot,

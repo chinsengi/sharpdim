@@ -331,7 +331,6 @@ def get_nmls(model, dataloader, ndata):
                 )
             if not norm_calculated:
                 if i == 0:
-                    breakpoint()
                     W0_norm = torch.sqrt(cur_norm)
                     W_norm = cur_norm
                 else:

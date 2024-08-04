@@ -9,7 +9,7 @@
 # SBATCH --partition=gpu-2080ti
 # SBATCH --partition=ckpt
 #SBATCH --nodes=8
-#SBATCH --mem=16G
+#SBATCH --mem=7G
 #SBATCH --gres=gpu:1
 #SBATCH --time=2-00:00:00
 
@@ -26,6 +26,7 @@ NETWORK="fnn"
 DATASET="fashionmnist"
 NETWORK="vgg"
 # NETWORK="lenet5"
+# NETWORK="lenet"
 DATASET="cifar10"
 # N_ITERS="1000000"
 N_ITERS="750000" 
