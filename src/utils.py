@@ -9,10 +9,13 @@ import torch
 import torch.nn as nn
 import logging
 import random
+
+from tqdm import tqdm
+from .models.vit import vit
 from .models.vgg import vgg11, vgg11_big, VGG
-from .models.fnn import LeNet5, fnn, lenet, lenet5, LeNet
+from .models.fnn import LeNet5, fnn, lenet, lenet5, LeNet, FNN
 from .models.resnet import resnet
-from .data import DataLoader, load_fmnist, load_cifar10
+from .data import DataLoader, load_fmnist, load_cifar10, load_imagenet
 from .linalg import eigen_variance, eigen_hessian
 
 
@@ -87,6 +90,8 @@ def load_net(network, dataset, num_classes, nonlinearity, use_layer_norm=False):
         return lenet()
     elif network == "lenet5":
         return lenet5(num_classes)
+    elif network == "vit":
+        return vit()
     else:
         raise ValueError("Network %s is not supported" % (network))
 
@@ -96,9 +101,8 @@ def load_data(dataset, num_train, batch_size, shrink=False):
         return load_fmnist(num_train, batch_size)
     elif dataset == "cifar10":
         return load_cifar10(num_train, batch_size, shrink=shrink)
-    elif dataset == "1dfunction":
-        raise NotImplementedError("Not implemented")
-        # return load_1dfcn(train_per_class, batch_size)
+    elif dataset == "imagenet":
+        return load_imagenet(num_train, batch_size)
     else:
         raise ValueError("Dataset %s is not supported" % (dataset))
 
@@ -151,22 +155,26 @@ def eval_accuracy(model, criterion, dataloader, hard_sample=False):
     loss_t, acc_t = 0.0, 0.0
     hard_samples = []
     hard_targets = []
-    for _ in range(n_batchs):
-        inputs, targets = next(dataloader)
-        inputs, targets = inputs.cuda(), targets.cuda()
+    with torch.no_grad():
+        for _ in tqdm(range(n_batchs)):
+            inputs, targets = next(iter(dataloader))
+            inputs, targets = inputs.cuda(), targets.cuda()
 
-        logits = model(inputs)
-        acc, correct_index = accuracy(logits, targets, index=True)
-        if hard_sample:
-            if logits[~correct_index].shape[0] > 0:
-                loss_t += criterion(
-                    logits[~correct_index], targets[~correct_index]
-                ).item()
-        else:
-            loss_t += criterion(logits, targets).item()
-        acc_t += acc.item()
-        hard_samples.append(inputs[~correct_index])
-        hard_targets.append(targets[~correct_index])
+            logits = model(inputs)
+            acc, correct_index = accuracy(logits, targets, index=True)
+            if hard_sample:
+                if logits[~correct_index].shape[0] > 0:
+                    loss_t += criterion(
+                        logits[~correct_index], targets[~correct_index]
+                    ).item()
+            else:
+                if targets.dim() == 1:
+                    targets_one_hot = torch.zeros_like(logits)
+                    targets = targets_one_hot.scatter_(1, targets.unsqueeze(1), 1)
+                loss_t += criterion(logits, targets).item()
+            acc_t += acc.item()
+            hard_samples.append(inputs[~correct_index])
+            hard_targets.append(targets[~correct_index])
 
     hard_samples = torch.cat(hard_samples, dim=0)
     hard_targets = torch.cat(hard_targets, dim=0)
@@ -177,7 +185,11 @@ def eval_accuracy(model, criterion, dataloader, hard_sample=False):
         return (
             loss_t / n_batchs,
             acc_t / n_batchs,
-            DataLoader(dataloader.X, dataloader.y, batch_size=1),
+            (
+                DataLoader(dataloader.X, dataloader.y, batch_size=1)
+                if hasattr(dataloader, "X")
+                else torch.utils.data.DataLoader(dataloader.dataset, batch_size=1)
+            ),
         )
 
 
@@ -212,7 +224,7 @@ def get_gradW(model, dataloader, ndata, k=1):
     gradW = 0
     B = 0
     for _ in range(ndata):
-        X, _ = next(dataloader)
+        X, _ = next(iter(dataloader))
         X = X.cuda()
         logits = model(X).reshape(1, -1)
         output_dim = logits.shape[1]
@@ -256,7 +268,7 @@ def get_dim(model, dataloader, ndata):
     G = 0
     A = 0
     for _ in range(ndata):
-        X, y = next(dataloader)
+        X, y = next(iter(dataloader))
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True
         logits = model(X).reshape(1, -1)
@@ -291,7 +303,7 @@ def get_nmls(model, dataloader, ndata):
         weights = []
         output_numel = []
         handles = register(model, activations, weights, output_numel)
-        X, y = next(dataloader)
+        X, y = next(iter(dataloader))
         X, y = X.cuda(), y.cuda()
         X.requires_grad = True
         logits = model(X).reshape(1, -1)
@@ -308,21 +320,19 @@ def get_nmls(model, dataloader, ndata):
             sing_val = torch.linalg.svdvals(grad_x)
             nmls += sing_val.max().item()
             eps = 0.0001
-            if (
-                isinstance(model, LeNet5)
-                or isinstance(model, VGG)
-                or isinstance(model, LeNet)
-            ):
+            if not isinstance(model, FNN):
                 # for conv layers the two norm is not well defined, so using the frobenius norm instead
+                # output numel is used to determine how many times the weights are repeated in a linear representation of the conv layer
                 if len(weights[i].shape) == 2:
                     output_numel[i] = 1
                 cur_norm = (
-                    torch.linalg.norm(weights[i].flatten(), 2) ** 2
-                ) * output_numel[i]
+                    torch.linalg.matrix_norm(weights[i], "fro") ** 2
+                ).sum() * output_numel[i]
                 harmonic += cur_norm / (
                     torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
                     + eps
                 )
+                breakpoint()
             else:
                 cur_norm = torch.linalg.matrix_norm(weights[i], 2) ** 2
                 harmonic += cur_norm / (
@@ -336,6 +346,7 @@ def get_nmls(model, dataloader, ndata):
                 else:
                     W_norm = W_norm + cur_norm
         norm_calculated = True
+        assert harmonic.numel() == 1
     return nmls / ndata, harmonic / ndata, W0_norm, torch.sqrt(W_norm)
 
 
@@ -345,7 +356,10 @@ def get_hook(activations, weights, output_numel):
             input[0].retain_grad()
             activations.append(input[0])
             weights.append(module.weight)
-            output_numel.append(output.numel())
+            if output.dim() >= 2:
+                output_numel.append(torch.tensor(output.shape[-2:]).prod().item())
+            else:
+                output_numel.append(output.numel())
 
     return save_activations
 
@@ -374,7 +388,7 @@ def cal_logvol(eig_val, dim):
 def min_norm(dataloader, ndata):
     min_norm = 1e10
     for i in range(ndata):
-        X, y = next(dataloader)
+        X, y = next(iter(dataloader))
         min_norm = min(min_norm, torch.linalg.matrix_norm(X, "fro").item())
     return min_norm
 
@@ -382,7 +396,7 @@ def min_norm(dataloader, ndata):
 def quad_mean(dataloader, ndata):
     quad = 0
     for _ in range(ndata):
-        X, _ = next(dataloader)
+        X, _ = next(iter(dataloader))
         quad += 1 / torch.linalg.vector_norm(X.flatten(), 2).item() ** 2
     return np.sqrt(quad / ndata)
 
@@ -391,7 +405,7 @@ def quad_mean(dataloader, ndata):
 def calculateNeuronwiseHessians_fc_layer(model, dataloader, ndata, criterion):
     loss = torch.tensor(0.0).cuda()
     for _ in range(ndata):
-        X, y = next(dataloader)
+        X, y = next(iter(dataloader))
         X, y = X.cuda(), y.cuda()
         logits = model(X)
         E = criterion(logits, y)

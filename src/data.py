@@ -1,6 +1,8 @@
 import os
 import torch
+from torchvision import transforms
 import torchvision.datasets as dsets
+
 
 
 class DataLoader:
@@ -64,6 +66,31 @@ def load_cifar10(training_size, batch_size=100, shrink=True):
     test_loader = DataLoader(test_X, test_y, batch_size)
 
     return train_loader, test_loader
+
+def load_imagenet(training_size, batch_size):
+    train_dir = "./data/imagenet/"
+    train_transform = transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    train_set = dsets.ImageNet(train_dir,split="train", transform=train_transform)
+    train_set.samples = train_set.samples[0:training_size]
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
+
+    val_dir = './data/imagenet/'
+    val_transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    val_set = dsets.ImageNet(val_dir, split='val', transform=val_transform)
+    val_set.samples = val_set.samples[0:1000]
+    val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size*2, shuffle=False)
+
+    return train_loader, val_loader
 
 
 def modify_cifar_data(X, y, n_samples=-1, shrink=True):

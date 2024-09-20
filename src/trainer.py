@@ -16,6 +16,7 @@ from .utils import (
 )
 from .data import DataLoader
 import torch.nn as nn
+import logging
 
 def train(
     model,
@@ -55,8 +56,11 @@ def train(
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=10
     )
-
-    dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
+    # breakpoint()
+    if args.dataset == "imagenet":
+        dim_dataloader = torch.utils.data.DataLoader(dataloader.dataset, batch_size=1)
+    else:
+        dim_dataloader = DataLoader(dataloader.X, dataloader.y, batch_size=1)
     for iter_now in tqdm(range(n_iters), smoothing=0):
         optimizer.zero_grad()
         loss, acc = compute_minibatch_gradient(model, criterion, dataloader, args)
@@ -66,6 +70,7 @@ def train(
         loss_avg = 0.9 * loss_avg + 0.1 * loss if loss_avg > 0 else loss
 
         if (iter_now + 1) % args.cal_freq == 0:
+            logging.info("start accuray calculation")
             if args.test_sample:
                 test_loss, test_accuracy, dim_dataloader = eval_accuracy(
                     model, criterion, test_loader, hard_sample=args.hard_sample
@@ -80,6 +85,7 @@ def train(
             test_loss_list.append(test_loss)
 
             # calculation NMLS
+            logging.info("start NMLS calculation")
             nmls, harmonic, W0_norm, W_norm = get_nmls(model, dim_dataloader, args.dim_nsample)
             nmls_list.append(nmls)
             harm_list.append(harmonic.item())
@@ -87,6 +93,7 @@ def train(
             W0_list.append(W0_norm.item())
 
             # calculate dimension, log volume, G and eigenvalues.
+            logging.info("start dimension calculation")
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             dim, log_vol, G, eig_val, A = get_dim(
                 model, dim_dataloader, args.dim_nsample
@@ -98,6 +105,7 @@ def train(
             A_list.append(A)
 
             # calculate sharpness
+            logging.info("start sharpness calculation")
             dim_dataloader.idx = dim_dataloader.idx - args.dim_nsample
             gradW, sharpness, B = get_gradW(model, dim_dataloader, args.dim_nsample)
             sharpness_list.append(sharpness)
@@ -111,7 +119,7 @@ def train(
             quad_list.append(quad)
 
             # calculate the relative flatness
-            # This is too time consuming, so we will not calculate it for now.
+            logging.info("start relative flatness calculation")
             trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
             rel_flatness_list.append(trace_nm)
 
@@ -172,10 +180,15 @@ def train(
 
 def compute_minibatch_gradient(model, criterion, dataloader, args):
     loss, acc = 0, 0
-    inputs, targets = next(dataloader)
+    # breakpoint()
+    inputs, targets = next(iter(dataloader))
     inputs, targets = inputs.cuda(), targets.cuda()
 
     logits = model(inputs)
+
+    if targets.dim() == 1:
+        targets_one_hot = torch.zeros_like(logits)
+        targets = targets_one_hot.scatter_(1, targets.unsqueeze(1), 1)
     E = criterion(logits, targets)
     E.backward()
 

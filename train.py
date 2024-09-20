@@ -41,7 +41,7 @@ def get_args():
     parser.add_argument(
         "--dataset",
         default="fashionmnist",
-        help="dataset, [fashionmnist] | cifar10, 1dfunction",
+        help="dataset, [fashionmnist] | cifar10, imagenet",
     )
     parser.add_argument("--network", default="fnn", help="network, [fnn] | vgg, resnet")
     parser.add_argument("--num_classes", type=int, default=10)
@@ -158,6 +158,8 @@ def main():
     elif args.loss == "cross_entropy":
         criterion = torch.nn.CrossEntropyLoss()
 
+    if args.network == "vit":
+        args.dataset = "imagenet"
     train_loader, test_loader = load_data(
         args.dataset, args.train_size, batch_size=args.batch_size, shrink=args.shrink
     )
