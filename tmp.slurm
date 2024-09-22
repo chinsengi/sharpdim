@@ -28,5 +28,6 @@ DATASET="cifar10"
 srun --ntasks=1 --gres=gpu:1 python train.py --network fnn --dataset fashionmnist --run_id 0 --n_iters 150000 --lr .1 --batch_size 20 --cal_freq 50 --test_sample
 srun --ntasks=1 --gres=gpu:1 python train.py --network vgg --dataset cifar10 --run_id 0 --n_iters 50 --lr .1 --batch_size 20 --cal_freq 50 --test_sample
 python train.py --network lenet5 --dataset cifar10 --run_id 0 --n_iters 500000 --lr .1 --batch_size 20 --cal_freq 500000
-python train.py --network vgg --dataset cifar10 --run_id 0 --n_iters 500000 --lr .1 --batch_size 20 --cal_freq 500000 
+python train.py --network vgg --dataset cifar10 --run_id 0 --n_iters 10005 --lr .1 --batch_size 20 --cal_freq 200 
+python train.py --network fnn --dataset fashionmnist --run_id 0 --n_iters 10005 --lr .1 --batch_size 20 --cal_freq 200
 python train.py --network vit --dataset imagenet --run_id 0 --n_iters 50 --lr .1 --batch_size 20 --cal_freq 1

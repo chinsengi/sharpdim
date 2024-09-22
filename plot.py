@@ -9,7 +9,8 @@ import json
 from scipy.signal import savgol_filter
 import scienceplots as sp
 import math
-
+import warnings
+warnings.filterwarnings("ignore")
 
 # def plot_res(res_list, title, save_path, file_name):
 #     create_dir(save_path)
@@ -44,7 +45,8 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
                 "loss_list",
                 "test_acc_list",
                 "test_loss_list",
-                "A_list"
+                "A_list",
+                "nmls_list"
             ]
             data = {}
             for list_name in data_list:
@@ -74,21 +76,22 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
                     "Log local dimension": np.log(data["dim_list"]),
                     "Sharpness": data["sharpness_list"],
                     "Log volume": data["logvol_list"],
-                    "Train accuracy": data["acc_list"],
+                    "Train acc": data["acc_list"],
                     "Train loss": data["loss_list"],
-                    "Test accuracy": data["test_acc_list"],
+                    "Test acc": data["test_acc_list"],
                     "Test loss": data["test_loss_list"],
                     "G": data["g_list"],
                     "eig": data["eig_list"].tolist(),
-                    "MLS": data["A_list"]
+                    "MLS": data["A_list"],
+                    "NMLS": data["nmls_list"]
                 }
             )
             dfs.append(df)
         dfs = pd.concat(dfs)
     vars2idxs = ["run_id", "epoch", "network", "dataset", "iteration", "lr", "batch size"]
     vars2stack = [
-        "Train loss" if use_test_sample else "Test loss",
-        "Test accuracy",
+        "Train acc" if use_test_sample else "Test acc",
+        "NMLS",
         "Sharpness",
         "Log volume",
         "MLS",
@@ -107,25 +110,15 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
 
 if __name__ == "__main__":
     # plt.style.use('science')
-    # dataset_list = ["fashionmnist"]
-    dataset_list = ["cifar10"]
-    # dataset_list = ["fashionmnist", "cifar10"]
+    dataset_list = ["fashionmnist"]
+    # dataset_list = ["cifar10"]
+    dataset_list = ["fashionmnist", "cifar10"]
     for i, dataset in enumerate(dataset_list):
-        # run_ids = [i for i in range(1,11)]
-        run_ids = (
-            [i for i in range(12, 32)]
-            if dataset == "fashionmnist"
-            else [i for i in range(10, 30)]
-        )
+        run_ids = [i for i in range(40, 60)] 
         print(f"run_ids to plot: {run_ids}")
         df = construct_df(run_ids, dataset, reconst=True)
-        # breakpoint()
         df1 = df[df["batch size"] == 20]
-        # df1 = df1[df1["lr"] != 0.075]
-        # df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
         df1['iteration (x5000)'] = df1['iteration'] //5000
-        # df1 = df1[df1["iteration (x1000)"] <= 200]
-        # breakpoint()
         sns.set_theme(font_scale=3)
         sns.set_style("whitegrid")
         g = sns.relplot(
@@ -140,20 +133,20 @@ if __name__ == "__main__":
             col_wrap=3,
             height=6,
             aspect=1.4,
-            ci=None
+            errorbar=None
             # errorbar="sd"
         )
         sns.despine()
         for item, ax in g.axes_dict.items():
             ax.grid(False)
             ax.set_title(item)
-            if item =="Log local dimension":
-                ax.set_ylim(0, 1)
-            if item =='Test accuracy':
-                if dataset == "fashionmnist":
-                    ax.set_ylim(89, 91)
-                else:
-                    ax.set_ylim(93, 96)
+            # if item =="Log local dimension":
+            #     ax.set_ylim(0, 1)
+            # if item =='Test accuracy':
+            #     if dataset == "fashionmnist":
+            #         ax.set_ylim(89, 91)
+            #     else:
+            #         ax.set_ylim(93, 96)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')
@@ -167,7 +160,6 @@ if __name__ == "__main__":
         df2 = df[df["lr"] == 0.1]
         # breakpoint()
         df2['iteration (x5000)'] = df2['iteration'] //5000
-        # df2 = df2[df2["iteration (x1000)"] <= 100]
         g = sns.relplot(
             data=df2,
             x="iteration (x5000)",
@@ -181,23 +173,23 @@ if __name__ == "__main__":
             col_wrap=3,
             height=6,
             aspect=1.4,
-            ci=None
+            errorbar=None
             # errorbar="sd"
         )
         sns.despine()
         for item, ax in g.axes_dict.items():
             ax.grid(False)
             ax.set_title(item)
-            if item =="Log local dimension":
-                if dataset == "fashionmnist":
-                    ax.set_ylim(0, 1)
-                else:
-                    ax.set_ylim(0,.25)
-            if item =='Test accuracy':
-                if dataset == "fashionmnist":
-                    ax.set_ylim(89, 91)
-                else:
-                    ax.set_ylim(93, 96)
+            # if item =="Log local dimension":
+            #     if dataset == "fashionmnist":
+            #         ax.set_ylim(0, 1)
+            #     else:
+            #         ax.set_ylim(0,.25)
+            # if item =='Test accuracy':
+            #     if dataset == "fashionmnist":
+            #         ax.set_ylim(89, 91)
+            #     else:
+            #         ax.set_ylim(93, 96)
             ax.spines['left'].set_color('black')
             ax.spines['left'].set_linewidth(1.0)  # Adjust the line width if needed
             ax.spines['bottom'].set_color('black')

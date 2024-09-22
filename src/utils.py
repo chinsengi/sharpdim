@@ -63,6 +63,7 @@ def savefig(path="./image", filename="image", format="png", include_timestamp=Tr
         dpi=300,
         format=format,
     )
+    print(f"Saved figure to {path}/{current_time + filename + '.' + format}")
 
 
 # create directory
@@ -96,11 +97,11 @@ def load_net(network, dataset, num_classes, nonlinearity, use_layer_norm=False):
         raise ValueError("Network %s is not supported" % (network))
 
 
-def load_data(dataset, num_train, batch_size, shrink=False):
+def load_data(dataset, num_train, batch_size, full_cifar=False):
     if dataset == "fashionmnist":
         return load_fmnist(num_train, batch_size)
     elif dataset == "cifar10":
-        return load_cifar10(num_train, batch_size, shrink=shrink)
+        return load_cifar10(num_train, batch_size, shrink=not full_cifar)
     elif dataset == "imagenet":
         return load_imagenet(num_train, batch_size)
     else:
@@ -332,7 +333,6 @@ def get_nmls(model, dataloader, ndata):
                     torch.linalg.vector_norm(activations[i].flatten(), 2).item() ** 2
                     + eps
                 )
-                breakpoint()
             else:
                 cur_norm = torch.linalg.matrix_norm(weights[i], 2) ** 2
                 harmonic += cur_norm / (

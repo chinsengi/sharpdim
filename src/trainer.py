@@ -119,9 +119,9 @@ def train(
             quad_list.append(quad)
 
             # calculate the relative flatness
-            logging.info("start relative flatness calculation")
-            trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
-            rel_flatness_list.append(trace_nm)
+            # logging.info("start relative flatness calculation")
+            # trace_nm, maxeigen_nm = calculateNeuronwiseHessians_fc_layer(model, dim_dataloader, args.dim_nsample, criterion)
+            # rel_flatness_list.append(trace_nm)
 
 
         if (iter_now+1) % 10000 == 0 and verbose:

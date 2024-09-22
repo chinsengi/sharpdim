@@ -94,7 +94,9 @@ def get_args():
         "--nonlinearity", default="tanh", help="nonlinearity of FFN, [tanh] | relu"
     )
     parser.add_argument(
-        "--shrink", action="store_true", help="whether to shrink the  cifar10 dataset"
+        "--full_cifar",
+        action="store_true",
+        help="whether to shrink the cifar10 dataset and use only 2 classes, help with achieving 0 training error.",
     )
     args = parser.parse_args()
 
@@ -161,7 +163,7 @@ def main():
     if args.network == "vit":
         args.dataset = "imagenet"
     train_loader, test_loader = load_data(
-        args.dataset, args.train_size, batch_size=args.batch_size, shrink=args.shrink
+        args.dataset, args.train_size, batch_size=args.batch_size, full_cifar=args.full_cifar
     )
     # args.n_iters = args.n_epochs * len(train_loader)
 

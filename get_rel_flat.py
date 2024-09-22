@@ -30,7 +30,6 @@ def get_rel_flat(start_id, end_id, data="fashionmnist"):
             save_npy(harm_list, f"./res/{data}/{idx}", f"harm_list{idx}.npy")
             save_npy(W_list, f"./res/{data}/{idx}", f"W_list{idx}.npy")
             save_npy(W0_list, f"./res/{data}/{idx}", f"W0_list{idx}.npy")
-            # breakpoint()
         except Exception as e:
             # save_npy(harm_list, f"./res/{data}/{idx}", f"harm_list{idx}.npy")
             print(e)

@@ -35,7 +35,6 @@ if __name__ == "__main__":
             )
         list_len = len(data["A_list"])
         sample_freq = config["cal_freq"]
-        breakpoint()
         df = pd.DataFrame(
             {
                 "A": data["A_list"],
@@ -67,7 +66,7 @@ if __name__ == "__main__":
             height=6,
             aspect=1.4,
             dashes=False,
-            ci=None
+            errorbar=None,
         )
         # g.set(yscale="log")
         sns.despine()
