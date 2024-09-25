@@ -48,6 +48,7 @@ def save_model(model, optimizer, path, filename):
 
 def save_npy(obj, path, filename):
     create_dir(path)
+    logging.info(f"Saving to {path}/{filename}")    
     np.save(os.path.join(path, filename), obj)
 
 
@@ -63,7 +64,7 @@ def savefig(path="./image", filename="image", format="png", include_timestamp=Tr
         dpi=300,
         format=format,
     )
-    print(f"Saved figure to {path}/{current_time + filename + '.' + format}")
+    logging.info(f"Saved figure to {path}/{current_time + filename + '.' + format}")
 
 
 # create directory

@@ -151,7 +151,7 @@ def main():
     else:
         args.seed = random.randint(0, 10000)
         set_seed(args.seed)
-    print(f"Writing log file to {args.log}")
+    logging.info(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
 

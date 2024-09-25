@@ -12,3 +12,4 @@ run/
 *.slurm
 image/
 test.py
+timm_models/
