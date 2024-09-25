@@ -28,69 +28,73 @@ def param_count(model):
 
 
 # # ref: https://github.com/tml-epfl/sharpness-vs-generalization/blob/main/sharpness.py#L320
-# def eval_average_sharpness(
-#     model,
-#     dataloader,
-#     loss_f,
-#     n_iters=100,
-#     rho=1.0,
-#     adaptive=False,
-#     norm="l2",
-# ):
-#     """Average case sharpness with Gaussian noise ~ (0, rho)."""
+def eval_average_sharpness(
+    model,
+    dataloader,
+    loss_f,
+    n_iters=100,
+    rho=1.0,
+    adaptive=False,
+    norm="l2",
+):
+    """Average case sharpness with Gaussian noise ~ (0, rho)."""
 
-#     orig_param_dict = {
-#         param_name: p.clone() for param_name, p in model.named_parameters()
-#     }  # {param: param.clone() for param in model.parameters()}
-#     # orig_norm = torch.cat([p.flatten() for p in orig_param_dict.values()]).norm()
+    def get_loss(model, loss_fn, x, y):
+        """Compute loss and class. error on a single batch."""
+        with torch.no_grad():
+            output = model(x)
+            if y.dim() == 1:
+                targets_one_hot = torch.zeros_like(output)
+                targets = targets_one_hot.scatter_(1, y.unsqueeze(1), 1)
+            loss = loss_fn(output, targets)
 
-#     # orig_norm = 0
-#     # n_el = 0
-#     # for p in orig_param_dict.values():
-#     #     orig_norm += p.flatten().norm() ** 2.0 * p.numel()
-#     #     n_el += p.numel()
-#     # orig_norm = (orig_norm / n_el) ** 0.5
-#     noisy_model = copy.deepcopy(model)
+        return loss.cpu().item()
 
-#     delta_dict = {
-#         param_name: torch.zeros_like(param)
-#         for param_name, param in model.named_parameters()
-#     }
-#     logging.info(f"Named params: {len(delta_dict)}")
-#     logging.info(f"Params: {param_count(model)}")
-#     logging.info(f"rho: {rho} samples: {n_iters}")
+    orig_param_dict = {
+        param_name: p.clone() for param_name, p in model.named_parameters()
+    }  # {param: param.clone() for param in model.parameters()}
+    noisy_model = copy.deepcopy(model)
 
-#     n_batches, avg_loss, avg_init_loss = 0, 0.0, 0.0
-#     output_str = ""
+    delta_dict = {
+        param_name: torch.zeros_like(param)
+        for param_name, param in model.named_parameters()
+    }
+    logging.info(f"Named params: {len(delta_dict)}")
+    logging.info(f"Params: {param_count(model)}")
+    logging.info(f"rho: {rho} samples: {n_iters}")
 
-#     with torch.no_grad():
-#         for x, y in tqdm(dataloader):
-#             x, y = x.cuda(), y.cuda()
+    n_batches, avg_loss, avg_init_loss = 0, 0.0, 0.0
+    output_str = ""
 
-#             # Loss on the unperturbed model.
-#             init_loss = get_loss(model, loss_f, x, y)
-#             avg_init_loss += init_loss
+    with torch.no_grad():
+        for x, y in tqdm(dataloader):
+            x, y = x.cuda(), y.cuda()
 
-#             batch_loss = 0.0
+            # Loss on the unperturbed model.
+            init_loss = get_loss(model, loss_f, x, y)
+            avg_init_loss += init_loss
 
-#             for i in range(n_iters):
-#                 delta_dict = random_init_lw(
-#                     delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
-#                 )
-#                 for (param_name, delta), (_, param) in zip(
-#                     delta_dict.items(), noisy_model.named_parameters()
-#                 ):
-#                     param.data = orig_param_dict[param_name] + delta_dict[param_name]
+            batch_loss = 0.0
 
-#                 curr_loss = get_loss(noisy_model, loss_f, x, y)
-#                 batch_loss += curr_loss
+            for i in range(n_iters):
+                delta_dict = random_init_lw(
+                    delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
+                )
+                for (param_name, delta), (_, param) in zip(
+                    delta_dict.items(), noisy_model.named_parameters()
+                ):
+                    param.data = orig_param_dict[param_name] + delta_dict[param_name]
 
-#             n_batches += 1
-#             avg_loss += batch_loss / n_iters
+                curr_loss = get_loss(noisy_model, loss_f, x, y)
+                batch_loss += curr_loss
 
-#     sharpness = (avg_loss - avg_init_loss) / n_batches
+            n_batches += 1
+            avg_loss += batch_loss / n_iters
 
-#     return sharpness
+    sharpness = (avg_loss - avg_init_loss) / n_batches
+
+    return sharpness
+
 
 def eval_cov_sharpness(
     model,
@@ -103,7 +107,7 @@ def eval_cov_sharpness(
 
     orig_param_dict = {
         param_name: p.clone() for param_name, p in model.named_parameters()
-    } 
+    }
     noisy_model = copy.deepcopy(model)
 
     delta_dict = {
@@ -132,7 +136,7 @@ def eval_cov_sharpness(
                     assert param_name == name
                     param.data = orig_param_dict[param_name] + delta
 
-                output[i]  = noisy_model(x)
+                output[i] = noisy_model(x)
 
             n_batches += 1
             cur_sharpness = torch.cov(output.T) / rho
