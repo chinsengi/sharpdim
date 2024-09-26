@@ -21,20 +21,20 @@ warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
 def main():
-    lists = ["mls_list", "sharpness_list"]
+    lists = ["mls_list", "sharpness_list", "norm_mls_list"]
     model = "vit_small"
-    run_id = "5"
+    run_id = "2"
 
     data = {}
     for list_name in lists:
         print(f"Loading {list_name}...")
         data[list_name] = np.load(f"../run/{model}/{run_id}/{list_name}{run_id}.npy")
-    mls_list = data["mls_list"]
+    mls_list = data["norm_mls_list"]
     sharpness_list = data["sharpness_list"]
-    mls_list = [mls for i, mls in enumerate(mls_list) if abs(sharpness_list[i]) < 2e7]
-    sharpness_list = [sharpness for sharpness in sharpness_list if abs(sharpness) < 2e7]
+    # mls_list = [mls for i, mls in enumerate(mls_list) if abs(sharpness_list[i]) < 2e7]
+    # sharpness_list = [sharpness for sharpness in sharpness_list if abs(sharpness) < 2e7]
     plt.scatter(mls_list, sharpness_list)
-    plt.xlabel("MLS")
+    plt.xlabel("norm MLS")
     plt.ylabel("Sharpness")
     plt.title("MLS vs Sharpness")
     correlation, _ = pearsonr(mls_list, sharpness_list)

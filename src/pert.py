@@ -3,7 +3,7 @@ import logging
 import math
 import torch
 from tqdm import tqdm
-
+import torch.nn.functional as F
 
 def random_init_lw(delta_dict, rho, orig_param_dict, norm="l2", adaptive=False):
     assert norm in ["l2", "linf"], f"Unknown perturbation model {norm}."
@@ -36,6 +36,7 @@ def eval_average_sharpness(
     rho=1.0,
     adaptive=False,
     norm="l2",
+    nonlin=None,
 ):
     """Average case sharpness with Gaussian noise ~ (0, rho)."""
 
@@ -43,6 +44,7 @@ def eval_average_sharpness(
         """Compute loss and class. error on a single batch."""
         with torch.no_grad():
             output = model(x)
+            output = nonlin(output)
             if y.dim() == 1:
                 targets_one_hot = torch.zeros_like(output)
                 targets = targets_one_hot.scatter_(1, y.unsqueeze(1), 1)
