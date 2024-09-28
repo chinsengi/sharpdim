@@ -56,7 +56,7 @@ def train(
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=10
     )
-    # breakpoint()
+
     if args.dataset == "imagenet":
         dim_dataloader = torch.utils.data.DataLoader(dataloader.dataset, batch_size=1)
     else:
@@ -180,7 +180,7 @@ def train(
 
 def compute_minibatch_gradient(model, criterion, dataloader, args):
     loss, acc = 0, 0
-    # breakpoint()
+
     inputs, targets = next(iter(dataloader))
     inputs, targets = inputs.cuda(), targets.cuda()
 

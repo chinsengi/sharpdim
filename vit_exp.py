@@ -3,6 +3,7 @@ import json
 import logging
 import shutil
 from time import time
+import numpy as np
 import timm
 import logging
 import os
@@ -16,7 +17,7 @@ import argparse
 import math
 
 from src.utils import save_npy, savefig, use_gpu
-from src.pert import eval_average_sharpness, eval_cov_sharpness
+from src.pert import eval_average_sharpness, eval_cov_sharpness, eval_mls
 from matplotlib import pyplot as plt
 from scipy.stats import pearsonr
 
@@ -29,7 +30,7 @@ def get_args():
     parser.add_argument(
         "--run_id", type=str, default="0", help="id used to identify different runs"
     )
-    parser.add_argument("--model", type=str, default="vit")
+    parser.add_argument("--model", type=str, default="vit_small")
     parser.add_argument(
         "--verbose",
         type=str,
@@ -37,7 +38,18 @@ def get_args():
         help="Verbose level: info | debug | warning | critical",
     )
     parser.add_argument("--adaptive_sharpness", action="store_true")
-    parser.add_argument("--num_data", type=int, default=1000)
+    parser.add_argument(
+        "--num_data",
+        type=int,
+        default=100,
+        help="Number of data points to use for sharpness approximation",
+    )
+    parser.add_argument(
+        "--num_samples",
+        type=int,
+        default=100,
+        help="Number of samples to use for jacobian computation",
+    )
     parser.add_argument("--rho", type=float, default=0.01)
     parser.add_argument("--nonlinearity", type=str, default="sigmoid")
     args = parser.parse_args()
@@ -50,7 +62,8 @@ def get_args():
     if not isinstance(level, int):
         raise ValueError(f"level {args.verbose} not supported")
 
-    assert not os.path.exists(args.log), f"{args.log} already exists"
+    if args.run_id != "0":
+        assert not os.path.exists(args.log), f"{args.log} already exists"
     if not os.path.exists(args.log):
         os.makedirs(args.log)
 
@@ -68,7 +81,10 @@ def get_args():
 
     return args
 
-
+def check_model_input(model):
+    input_size = model.pretrained_cfg["input_size"][-1]
+    return input_size <= 384
+    
 def main():
     # use timm to create and save the model
     # Ensure the model is saved to a file
@@ -88,12 +104,15 @@ def main():
     elif args.nonlinearity == "softmax":
         nonlin = nn.Softmax(dim=1)
     for model_name in tqdm(model_list):
-        # model_name = "gcvit_base.in1k"
+        # model_name = "maxvit_small_tf_512.in1k"
         logging.info(f"processing model {model_name}")
         model = timm.create_model(
             model_name,
             pretrained=True,
         )
+        if not check_model_input(model):
+            logging.info(f"Skipping model {model_name} as its input exceeds size 384*384")
+            continue
         if model.pretrained_cfg["num_classes"] != 1000:
             logging.info(
                 f"Skipping model {model_name} as it is not trained on ImageNet"
@@ -106,35 +125,19 @@ def main():
         data_cfg = timm.data.resolve_data_config(model.pretrained_cfg)
         transform = timm.data.create_transform(**data_cfg)
         num_data = args.num_data
-        train_loader, _ = load_imagenet(num_data, 1, transform)
+        train_loader, _ = load_imagenet(50000, 1, transform)
 
-        mls_sum = 0.0
-        norm_mls_sum = 0.0
         with torch.no_grad():
             # calculate the mls
-            for img, target in tqdm(train_loader):
-                # logging.info(img.shape)
-                # logging.info(target.shape)
-                img, target = img.to(args.device), target.to(args.device)
-                num_samples = 20  # Number of samples to use for jacobian computation
-                alp = args.rho**2  # Noise variance
-                # jacobian(model, img) # This takes 17 minutes to run
-                noise = torch.randn(num_samples, *(img.shape[1:])).to(
-                    args.device
-                ) * math.sqrt(alp)
-                out = model(img + noise)
-                out = nonlin(out)
-                cov = torch.cov(out.T) / alp
-                assert cov.shape == (1000, 1000)
-                mls = torch.linalg.matrix_norm(cov, ord=2).cpu().item()
-                norm_mls = mls * torch.norm(img.flatten()).cpu().item()
-                mls_sum = mls_sum + mls
-                norm_mls_sum = norm_mls_sum + norm_mls
-
-            mls_avg = mls_sum / num_data
-            norm_mls_avg = norm_mls_sum / num_data
-            logging.info(f"MLS for model {model_name}: {mls_avg}")
-            logging.info(f"Normalized MLS for model {model_name}: {norm_mls_avg}")
+            mls_avg, norm_mls_avg = eval_mls(
+                model,
+                train_loader,
+                args,
+                nonlin,
+                model_name,
+                n_iters=num_data,
+                num_samples=args.num_samples,
+            )
             mls_list.append(mls_avg)
             norm_mls_list.append(norm_mls_avg)
 
@@ -144,16 +147,17 @@ def main():
                 eval_average_sharpness(
                     model,
                     train_loader,
-                    torch.nn.MSELoss(reduction="sum"),
+                    torch.nn.MSELoss(reduction="mean"),
                     n_iters=20,
                     rho=args.rho,
                     adaptive=args.adaptive_sharpness,
-                    nonlin = nonlin
+                    nonlin=nonlin,
                 )
                 / args.rho**2
             )
             logging.info(f"Sharpness for model {model_name}: {sharpness}")
             sharpness_list.append(sharpness)
+        # assert False
 
     lists = ["mls_list", "sharpness_list", "norm_mls_list"]
     for i in range(len(lists)):
@@ -164,8 +168,10 @@ def main():
         )
     correlation, _ = pearsonr(mls_list, sharpness_list)
     logging.info(f"Pearson correlation between MLS and Sharpness: {correlation}")
-    norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)   
-    logging.info(f"Pearson correlation between Normalized MLS and Sharpness: {norm_correlation}")
+    norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)
+    logging.info(
+        f"Pearson correlation between Normalized MLS and Sharpness: {norm_correlation}"
+    )
     plt.scatter(mls_list, sharpness_list)
     plt.xlabel("MLS")
     plt.ylabel("Sharpness")

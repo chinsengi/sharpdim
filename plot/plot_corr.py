@@ -68,14 +68,12 @@ if __name__ == "__main__":
         print(run_id)
         # data["test_loss"] *= 10
         # assert np.mean(-data["test_acc"] + data["acc"]) > 5
-        # breakpoint()
         for list_name in data_list[:5]:
             if stat.get(list_name) is None:
                 stat[list_name] = []
             # result = stats.pearsonr(data[list_name], data["test_loss"])
             stat[list_name].append(np.mean(data[list_name]))
             if list_name == "dim" and np.isnan(data[list_name]):
-                breakpoint()
         # stat["INMLS"] = [] if stat.get("INMLS") is None else stat["INMLS"]
         # stat["INMLS"].append(np.mean(data['sharpness']*data['W']))
         stat["gen gap"] = [] if stat.get("gen gap") is None else stat["gen gap"]
@@ -118,7 +116,6 @@ if __name__ == "__main__":
         # else ["Local dim", "Sharpness", "Log volume", "G", "MLS", "gen gap", "C", "D"]
     )
 
-    # breakpoint()
     # df = pd.melt(
     #     df,
     #     id_vars=["test_loss"],

@@ -53,8 +53,6 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
                 data[list_name] = np.load(
                     f"res/{dataset}/{run_id}/" + list_name + str(run_id) + ".npy"
                 )
-            # if config['lr']==0.1:
-            #     breakpoint()
             train_size = 60000 if config["dataset"] == "fashionmnist" else 10000
             batch_size = config["batch_size"]
             n_iter_per_epoch = math.ceil(train_size / batch_size)
@@ -103,7 +101,7 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
         .reset_index()
         .rename(columns={0: "value", "level_" + str(len(vars2idxs)): "variable"})
     )
-    # breakpoint()
+
     dfs.to_pickle(f"res/df_{dataset}.pkl")
     return df
 
@@ -158,7 +156,7 @@ if __name__ == "__main__":
         )
 
         df2 = df[df["lr"] == 0.1]
-        # breakpoint()
+
         df2['iteration (x5000)'] = df2['iteration'] //5000
         g = sns.relplot(
             data=df2,

@@ -37,8 +37,6 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
                 data[list_name] = np.load(
                     f"res/{dataset}/{run_id}/" + list_name + str(run_id) + ".npy"
                 )
-            # if config['lr']==0.1:
-            #     breakpoint()
             train_size = 60000 if config["dataset"] == "fashionmnist" else 10000
             batch_size = config["batch_size"]
             n_iter_per_epoch = math.ceil(train_size / batch_size)
@@ -87,7 +85,7 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
         .reset_index()
         .rename(columns={0: "value", "level_" + str(len(vars2idxs)): "variable"})
     )
-    # breakpoint()
+
     dfs.to_pickle(f"res/df_{dataset}.pkl")
     return df
 
@@ -106,13 +104,13 @@ if __name__ == "__main__":
         )
         print(f"run_ids to plot: {run_ids}")
         df = construct_df(run_ids, dataset, reconst=False)
-        # breakpoint()
+
         df1 = df[df["batch size"] == 20]
         # df1 = df1[df1["lr"] != 0.075]
         # df1['iteration_epoch'] = df1['iteration'] -  df1['epoch']*100
         df1['iteration (x1000)'] = df1['iteration'] //1000
         # df1 = df1[df1["iteration (x1000)"] <= 200]
-        # breakpoint()
+
         sns.set_theme(font_scale=1.5)
         sns.set_style("whitegrid")
         g = sns.relplot(

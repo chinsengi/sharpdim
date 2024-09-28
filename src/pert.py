@@ -4,6 +4,8 @@ import math
 import torch
 from tqdm import tqdm
 import torch.nn.functional as F
+import numpy as np
+
 
 def random_init_lw(delta_dict, rho, orig_param_dict, norm="l2", adaptive=False):
     assert norm in ["l2", "linf"], f"Unknown perturbation model {norm}."
@@ -69,7 +71,9 @@ def eval_average_sharpness(
     output_str = ""
 
     with torch.no_grad():
-        for x, y in tqdm(dataloader):
+        sharp_hist = []
+        for _ in tqdm(range(n_iters)):
+            x,y = next(iter(dataloader))
             x, y = x.cuda(), y.cuda()
 
             # Loss on the unperturbed model.
@@ -77,7 +81,7 @@ def eval_average_sharpness(
             avg_init_loss += init_loss
 
             batch_loss = 0.0
-
+            cur_loss_list = []
             for i in range(n_iters):
                 delta_dict = random_init_lw(
                     delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
@@ -89,13 +93,83 @@ def eval_average_sharpness(
 
                 curr_loss = get_loss(noisy_model, loss_f, x, y)
                 batch_loss += curr_loss
+                cur_loss_list.append(curr_loss)
+            var = np.var(cur_loss_list)
+            required_iter = max(int(np.sqrt(var / 0.01)), n_iters)
+            # logging.info(f"Variance of loss: {var}")
+            for i in range(required_iter - n_iters):
+                delta_dict = random_init_lw(
+                    delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
+                )
+                for (param_name, delta), (_, param) in zip(
+                    delta_dict.items(), noisy_model.named_parameters()
+                ):
+                    param.data = (
+                        orig_param_dict[param_name] + delta_dict[param_name]
+                    )
+
+                curr_loss = get_loss(noisy_model, loss_f, x, y)
+                batch_loss += curr_loss
 
             n_batches += 1
-            avg_loss += batch_loss / n_iters
+            avg_loss += batch_loss / max(n_iters, required_iter)
+            sharp_hist.append(batch_loss / max(n_iters, required_iter))
+        sharp_var = np.var(sharp_hist)
+        logging.info(f"Variance of sharpness: {sharp_var}")
+            
 
     sharpness = (avg_loss - avg_init_loss) / n_batches
 
     return sharpness
+
+
+def eval_mls(model, train_loader, args, nonlin, model_name, n_iters=100, num_samples=256):
+    mls_hist = []
+    norm_mls_hist = []
+    mls_sum, norm_mls_sum = 0.0, 0.0
+
+    def cal_mls():
+        img, target = next(iter(train_loader))
+        img, target = img.to(args.device), target.to(args.device)
+        alp = args.rho**2  # Noise variance
+        # jacobian(model, img) # This takes 17 minutes to run
+        noise = torch.randn(num_samples, *(img.shape[1:])).to(args.device) * math.sqrt(
+            alp
+        )
+        out = model(img + noise)
+        out = nonlin(out)
+        cov = torch.cov(out.T) / alp
+        assert cov.shape == (1000, 1000)
+        mls = torch.linalg.matrix_norm(cov, ord='fro').cpu().item()
+        norm_mls = mls * torch.norm(img.flatten()).cpu().item()
+        return mls, norm_mls
+
+    for _ in tqdm(range(n_iters)):
+        mls, norm_mls = cal_mls()
+        mls_hist.append(mls)
+        norm_mls_hist.append(norm_mls)
+        mls_sum = mls_sum + mls
+        norm_mls_sum = norm_mls_sum + norm_mls
+
+    mls_var = np.var(mls_hist)
+    logging.info(f"Variance of MLS: {mls_var}")
+    norm_mls_var = np.var(norm_mls_hist)
+    logging.info(f"Variance of Normalized MLS: {norm_mls_var}")
+
+    required_iter = int(mls_var / 1e3)
+    required_iter = max(required_iter, n_iters)
+
+    for _ in tqdm(range(required_iter - n_iters)):
+        mls, norm_mls = cal_mls()
+        mls_hist.append(mls)
+        norm_mls_hist.append(norm_mls)
+        mls_sum = mls_sum + mls
+        norm_mls_sum = norm_mls_sum + norm_mls
+    mls_avg = mls_sum / required_iter
+    norm_mls_avg = norm_mls_sum / required_iter
+    logging.info(f"MLS for model {model_name}: {mls_avg}")
+    logging.info(f"Normalized MLS for model {model_name}: {norm_mls_avg}")
+    return mls_avg, norm_mls_avg
 
 
 def eval_cov_sharpness(

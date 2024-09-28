@@ -1,4 +1,5 @@
 import os
+import random
 import torch
 from torchvision import transforms
 import torchvision.datasets as dsets
@@ -78,12 +79,12 @@ def load_imagenet(training_size, batch_size, transform=None):
     
     train_dir = "./data/imagenet/"
     train_set = dsets.ImageNet(train_dir,split="train", transform=transform)
-    train_set.samples = train_set.samples[0:training_size]
+    train_set.samples = random.sample(train_set.samples, training_size)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
 
     val_dir = './data/imagenet/'
     val_set = dsets.ImageNet(val_dir, split='val', transform=transform)
-    val_set.samples = val_set.samples[0:1000]
+    val_set.samples = random.sample(val_set.samples, 1000)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size*2, shuffle=True)
 
     return train_loader, val_loader

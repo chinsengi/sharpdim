@@ -13,6 +13,6 @@ def vit(progress=True):
 
 if __name__ == '__main__':
     model = vit()
-    # breakpoint()
+
     print(model)
     print(model(torch.randn(1, 3, 224, 224)).shape)
