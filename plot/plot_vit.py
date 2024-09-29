@@ -18,12 +18,14 @@ from scipy.stats import pearsonr
 import warnings
 
 warnings.filterwarnings("ignore")
-logger = logging.getLogger(__name__)
 
 def main():
+    logger = logging.getLogger()
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.INFO)
     lists = ["mls_list", "sharpness_list", "norm_mls_list"]
     model = "vit_small"
-    run_id = "2"
+    run_id = "16"
 
     data = {}
     for list_name in lists:

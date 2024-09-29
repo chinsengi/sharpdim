@@ -1,5 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
+import os
+
+# Add the parent directory of src to the sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils import create_dir, savefig
 import os
 import argparse
@@ -11,7 +16,8 @@ import scienceplots as sp
 import math
 import warnings
 warnings.filterwarnings("ignore")
-
+import logging
+logger = logging.getLogger(__name__)
 # def plot_res(res_list, title, save_path, file_name):
 #     create_dir(save_path)
 #     plt.figure()
@@ -88,7 +94,7 @@ def construct_df(run_ids, dataset, reconst=False, use_test_sample=False):
         dfs = pd.concat(dfs)
     vars2idxs = ["run_id", "epoch", "network", "dataset", "iteration", "lr", "batch size"]
     vars2stack = [
-        "Train acc" if use_test_sample else "Test acc",
+        "Train loss",
         "NMLS",
         "Sharpness",
         "Log volume",

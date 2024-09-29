@@ -17,7 +17,7 @@ import argparse
 import math
 
 from src.utils import save_npy, savefig, use_gpu
-from src.pert import eval_average_sharpness, eval_cov_sharpness, eval_mls
+from src.pert import eval_average_sharpness, eval_cov_sharpness, eval_mls, eval_mls_adv
 from matplotlib import pyplot as plt
 from scipy.stats import pearsonr
 
@@ -37,7 +37,7 @@ def get_args():
         default="info",
         help="Verbose level: info | debug | warning | critical",
     )
-    parser.add_argument("--adaptive_sharpness", action="store_true")
+    parser.add_argument("--absolute_sharpness", action="store_true")
     parser.add_argument(
         "--num_data",
         type=int,
@@ -47,11 +47,15 @@ def get_args():
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=100,
+        default=256,
         help="Number of samples to use for jacobian computation",
     )
     parser.add_argument("--rho", type=float, default=0.01)
     parser.add_argument("--nonlinearity", type=str, default="sigmoid")
+    parser.add_argument("--reduction", type=str, default="sum")
+    parser.add_argument("--test", action="store_true")
+    parser.add_argument("--skip_mls", action="store_true")
+    parser.add_argument("--test_model", type=str, default="gcvit_small.in1k")
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.model, args.run_id)
@@ -81,21 +85,23 @@ def get_args():
 
     return args
 
+
 def check_model_input(model):
     input_size = model.pretrained_cfg["input_size"][-1]
     return input_size <= 384
-    
+
+
 def main():
     # use timm to create and save the model
     # Ensure the model is saved to a file
     args = get_args()
-    logging.info(f"Writing log file to {args.log}")
+    logging.warning(f"Writing log file to {args.log}")
     config = json.dumps(vars(args), indent=2)
-    logging.info("===> Config:")
-    logging.info(config)
-    logging.info(f"Searching for models with name {args.model}")
+    logging.warning("===> Config:")
+    logging.warning(config)
+    logging.warning(f"Searching for models with name {args.model}")
     model_list = timm.list_models(f"*{args.model}*", pretrained=True)
-    logging.info(f"Number of models found: {len(model_list)}")
+    logging.warning(f"Number of models found: {len(model_list)}")
     mls_list = []
     sharpness_list = []
     norm_mls_list = []
@@ -103,43 +109,59 @@ def main():
         nonlin = F.sigmoid
     elif args.nonlinearity == "softmax":
         nonlin = nn.Softmax(dim=1)
-    for model_name in tqdm(model_list):
-        # model_name = "maxvit_small_tf_512.in1k"
-        logging.info(f"processing model {model_name}")
+    testing = args.test
+    for i, model_name in tqdm(enumerate(model_list)):
+        logging.warning(f"Processing {i}/{len(model_list)}-th model: {model_name}")
+        if testing:
+            model_name = args.test_model
+            logging.warning(f"Testing model {model_name}")
+        logging.warning(f"processing model {model_name}")
         model = timm.create_model(
             model_name,
             pretrained=True,
         )
         if not check_model_input(model):
-            logging.info(f"Skipping model {model_name} as its input exceeds size 384*384")
+            logging.warning(
+                f"Skipping model {model_name} as its input exceeds size 384*384"
+            )
             continue
         if model.pretrained_cfg["num_classes"] != 1000:
-            logging.info(
+            logging.warning(
                 f"Skipping model {model_name} as it is not trained on ImageNet"
             )
             continue
         model = model.to(args.device)
         model.eval()  # Set the model to evaluation mode
-
+        for p in model.parameters():
+            p.requires_grad = False
         # get the data transformation
         data_cfg = timm.data.resolve_data_config(model.pretrained_cfg)
         transform = timm.data.create_transform(**data_cfg)
         num_data = args.num_data
         train_loader, _ = load_imagenet(50000, 1, transform)
 
-        with torch.no_grad():
-            # calculate the mls
-            mls_avg, norm_mls_avg = eval_mls(
-                model,
-                train_loader,
-                args,
-                nonlin,
-                model_name,
-                n_iters=num_data,
-                num_samples=args.num_samples,
+        logging.warning(f"Calculating MLS for model {model_name}")
+        if not args.skip_mls:
+            mls_avg, norm_mls_avg = eval_mls_adv(
+                model, train_loader, args, nonlin, n_iters=num_data
             )
             mls_list.append(mls_avg)
             norm_mls_list.append(norm_mls_avg)
+        else:
+            logging.warning(f"Skipping MLS calculation for model {model_name}")
+        
+        logging.warning(f"Calculating Sharpness for model {model_name}")
+        with torch.no_grad():
+            # calculate the mls
+            # mls_avg, norm_mls_avg = eval_mls(
+            #     model,
+            #     train_loader,
+            #     args,
+            #     nonlin,
+            #     model_name,
+            #     n_iters=num_data,
+            #     num_samples=args.num_samples,
+            # )
 
             # calculate the sharpness
             # sharpness = eval_cov_sharpness(model, train_loader, rho=args.rho, n_iters=20)
@@ -147,17 +169,17 @@ def main():
                 eval_average_sharpness(
                     model,
                     train_loader,
-                    torch.nn.MSELoss(reduction="mean"),
-                    n_iters=20,
+                    torch.nn.MSELoss(reduction=args.reduction),
+                    n_iters=num_data,
                     rho=args.rho,
-                    adaptive=args.adaptive_sharpness,
+                    adaptive=not args.absolute_sharpness,
                     nonlin=nonlin,
                 )
-                / args.rho**2
             )
-            logging.info(f"Sharpness for model {model_name}: {sharpness}")
+            logging.warning(f"Sharpness for model {model_name}: {sharpness}")
             sharpness_list.append(sharpness)
-        # assert False
+        if testing:
+            assert False
 
     lists = ["mls_list", "sharpness_list", "norm_mls_list"]
     for i in range(len(lists)):
@@ -167,17 +189,17 @@ def main():
             lists[i] + args.run_id,
         )
     correlation, _ = pearsonr(mls_list, sharpness_list)
-    logging.info(f"Pearson correlation between MLS and Sharpness: {correlation}")
+    logging.warning(f"Pearson correlation between MLS and Sharpness: {correlation}")
     norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)
-    logging.info(
+    logging.warning(
         f"Pearson correlation between Normalized MLS and Sharpness: {norm_correlation}"
     )
-    plt.scatter(mls_list, sharpness_list)
-    plt.xlabel("MLS")
-    plt.ylabel("Sharpness")
-    plt.title("MLS vs Sharpness")
+    plt.scatter(norm_mls_list, sharpness_list)
+    plt.xlabel("Normalized MLS")
+    plt.ylabel("Adaptive Sharpness")
+    # plt.title("MLS vs Sharpness")
     plt.annotate(
-        f"Pearson correlation: {correlation:.2f}",
+        f"Pearson correlation: {norm_correlation:.2f}",
         xy=(0.05, 0.95),
         xycoords="axes fraction",
         fontsize=12,

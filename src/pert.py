@@ -4,6 +4,7 @@ import math
 import torch
 from tqdm import tqdm
 import torch.nn.functional as F
+import torch.optim as optim
 import numpy as np
 
 
@@ -68,12 +69,12 @@ def eval_average_sharpness(
     logging.info(f"rho: {rho} samples: {n_iters}")
 
     n_batches, avg_loss, avg_init_loss = 0, 0.0, 0.0
-    output_str = ""
-
+    sample_iters = n_iters
+    pert_iters = 50
     with torch.no_grad():
         sharp_hist = []
-        for _ in tqdm(range(n_iters)):
-            x,y = next(iter(dataloader))
+        for _ in tqdm(range(sample_iters)):
+            x, y = next(iter(dataloader))
             x, y = x.cuda(), y.cuda()
 
             # Loss on the unperturbed model.
@@ -82,7 +83,7 @@ def eval_average_sharpness(
 
             batch_loss = 0.0
             cur_loss_list = []
-            for i in range(n_iters):
+            for _ in range(pert_iters):
                 delta_dict = random_init_lw(
                     delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
                 )
@@ -94,36 +95,85 @@ def eval_average_sharpness(
                 curr_loss = get_loss(noisy_model, loss_f, x, y)
                 batch_loss += curr_loss
                 cur_loss_list.append(curr_loss)
-            var = np.var(cur_loss_list)
-            required_iter = max(int(np.sqrt(var / 0.01)), n_iters)
-            # logging.info(f"Variance of loss: {var}")
-            for i in range(required_iter - n_iters):
+            std = np.std(cur_loss_list)
+            required_iter = max(int(std/(rho*10)) ** 2, pert_iters)
+            logging.info(f"{required_iter=}")
+            for _ in range(required_iter - pert_iters):
                 delta_dict = random_init_lw(
                     delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
                 )
                 for (param_name, delta), (_, param) in zip(
                     delta_dict.items(), noisy_model.named_parameters()
                 ):
-                    param.data = (
-                        orig_param_dict[param_name] + delta_dict[param_name]
-                    )
+                    param.data = orig_param_dict[param_name] + delta_dict[param_name]
 
                 curr_loss = get_loss(noisy_model, loss_f, x, y)
                 batch_loss += curr_loss
-
+                cur_loss_list.append(curr_loss)
             n_batches += 1
-            avg_loss += batch_loss / max(n_iters, required_iter)
-            sharp_hist.append(batch_loss / max(n_iters, required_iter))
-        sharp_var = np.var(sharp_hist)
-        logging.info(f"Variance of sharpness: {sharp_var}")
-            
+            assert required_iter == len(
+                cur_loss_list
+            ), f"{required_iter=} {len(cur_loss_list)=}"
+            avg_loss += batch_loss / required_iter
+            sharp_hist.append(batch_loss / required_iter - init_loss)
+            logging.info(f"sharpness: {batch_loss / required_iter - init_loss}")
+    sharp_std = np.std(sharp_hist) * rho**2 / np.sqrt(n_batches)
+    logging.warning(f"standard deviation of sharpness: {sharp_std}")
 
-    sharpness = (avg_loss - avg_init_loss) / n_batches
-
+    sharpness = (avg_loss - avg_init_loss) / (n_batches * rho**2)
+    logging.warning(f"Sharpness: {sharpness}")
     return sharpness
 
 
-def eval_mls(model, train_loader, args, nonlin, model_name, n_iters=100, num_samples=256):
+def eval_mls_adv(
+    model,
+    train_loader,
+    args,
+    nonlin,
+    n_iters=100,
+):
+    epsilon = args.rho
+
+    mls_hist = []
+    norm_mls_hist = []
+    mls_sum, norm_mls_sum = 0.0, 0.0
+    for _ in tqdm(range(n_iters)):
+        img, target = next(iter(train_loader))
+        img, target = img.to(args.device), target.to(args.device)
+        orig = model(img)
+        delta = torch.randn_like(img, requires_grad=True, device=args.device)
+        # breakpoint()
+        opt = optim.Adam([delta], lr=0.1)
+        delta.data = delta.data * epsilon
+        for _ in range(30):
+            # delta = delta * epsilon / torch.norm(delta.flatten(), p=2)
+            delta.data.clamp_(-epsilon, epsilon)
+            pert = model(img + delta)
+            loss = -F.mse_loss(nonlin(orig), nonlin(pert), reduction="sum")
+            opt.zero_grad()
+            loss.backward()
+            # breakpoint()
+            opt.step()
+            delta.data.clamp_(-epsilon, epsilon)
+            # logging.info(f"loss: {loss.cpu().item()}")
+        mls = -loss.cpu().item() / torch.norm(delta.flatten(), p=2).cpu().item()
+        norm_mls = mls * torch.norm(img.flatten()).cpu().item()
+        mls_hist.append(mls)
+        norm_mls_hist.append(norm_mls)
+        mls_sum = mls_sum + mls
+        norm_mls_sum = norm_mls_sum + norm_mls
+    std = np.std(mls_hist) / np.sqrt(n_iters)
+    logging.warning(f"Standard deviation of MLS: {std}")
+    norm_std = np.std(norm_mls_hist) / np.sqrt(n_iters)
+    logging.warning(f"standard deviation of Normalized MLS: {norm_std}")
+    logging.warning(f"MLS for model: {mls_sum / n_iters}")
+    logging.warning(f"Normalized MLS for model: {norm_mls_sum / n_iters}")
+    return mls_sum / n_iters, norm_mls_sum / n_iters
+
+
+def eval_mls(
+    model, train_loader, args, nonlin, model_name, n_iters=100, num_samples=256
+):
     mls_hist = []
     norm_mls_hist = []
     mls_sum, norm_mls_sum = 0.0, 0.0
@@ -131,18 +181,18 @@ def eval_mls(model, train_loader, args, nonlin, model_name, n_iters=100, num_sam
     def cal_mls():
         img, target = next(iter(train_loader))
         img, target = img.to(args.device), target.to(args.device)
-        alp = args.rho**2  # Noise variance
+        alp = args.rho**2  # Noise standard deviation
         # jacobian(model, img) # This takes 17 minutes to run
-        noise = torch.randn(num_samples, *(img.shape[1:])).to(args.device) * math.sqrt(
-            alp
-        )
-        out = model(img + noise)
-        out = nonlin(out)
-        cov = torch.cov(out.T) / alp
-        assert cov.shape == (1000, 1000)
-        mls = torch.linalg.matrix_norm(cov, ord='fro').cpu().item()
-        norm_mls = mls * torch.norm(img.flatten()).cpu().item()
-        return mls, norm_mls
+        mls, norm_mls = 0.0, 0.0
+        for _ in range(num_samples // 32):
+            noise = torch.randn(32, *(img.shape[1:])).to(args.device) * math.sqrt(alp)
+            out = model(img + noise)
+            out = nonlin(out)
+            cov = torch.cov(out.T) / alp
+            assert cov.shape == (1000, 1000)
+            mls += torch.linalg.matrix_norm(cov, ord="fro").cpu().item()
+            norm_mls += mls * torch.norm(img.flatten()).cpu().item()
+        return mls / (num_samples // 32), norm_mls / (num_samples // 32)
 
     for _ in tqdm(range(n_iters)):
         mls, norm_mls = cal_mls()
@@ -151,12 +201,12 @@ def eval_mls(model, train_loader, args, nonlin, model_name, n_iters=100, num_sam
         mls_sum = mls_sum + mls
         norm_mls_sum = norm_mls_sum + norm_mls
 
-    mls_var = np.var(mls_hist)
-    logging.info(f"Variance of MLS: {mls_var}")
-    norm_mls_var = np.var(norm_mls_hist)
-    logging.info(f"Variance of Normalized MLS: {norm_mls_var}")
+    mls_std = np.std(mls_hist)
+    logging.warning(f"standard deviation of MLS: {mls_std}")
+    norm_mls_std = np.std(norm_mls_hist)
+    logging.warning(f"standard deviation of Normalized MLS: {norm_mls_std}")
 
-    required_iter = int(mls_var / 1e3)
+    required_iter = int(mls_std / 1e2)
     required_iter = max(required_iter, n_iters)
 
     for _ in tqdm(range(required_iter - n_iters)):
@@ -167,8 +217,8 @@ def eval_mls(model, train_loader, args, nonlin, model_name, n_iters=100, num_sam
         norm_mls_sum = norm_mls_sum + norm_mls
     mls_avg = mls_sum / required_iter
     norm_mls_avg = norm_mls_sum / required_iter
-    logging.info(f"MLS for model {model_name}: {mls_avg}")
-    logging.info(f"Normalized MLS for model {model_name}: {norm_mls_avg}")
+    logging.warning(f"MLS for model {model_name}: {mls_avg}")
+    logging.warning(f"Normalized MLS for model {model_name}: {norm_mls_avg}")
     return mls_avg, norm_mls_avg
 
 
