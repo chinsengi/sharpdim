@@ -50,12 +50,13 @@ def get_args():
         default=256,
         help="Number of samples to use for jacobian computation",
     )
-    parser.add_argument("--rho", type=float, default=0.01)
+    parser.add_argument("--rho", type=float, default=0.1)
     parser.add_argument("--nonlinearity", type=str, default="sigmoid")
     parser.add_argument("--reduction", type=str, default="sum")
     parser.add_argument("--test", action="store_true")
     parser.add_argument("--skip_mls", action="store_true")
     parser.add_argument("--test_model", type=str, default="gcvit_small.in1k")
+    parser.add_argument("--max_num_model", type=int, default=400)
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.model, args.run_id)
@@ -111,7 +112,10 @@ def main():
         nonlin = nn.Softmax(dim=1)
     testing = args.test
     for i, model_name in tqdm(enumerate(model_list)):
-        logging.warning(f"Processing {i}/{len(model_list)}-th model: {model_name}")
+        if i >= args.max_num_model:
+            logging.warning(f"Reached maximum number of models to process: {args.max_num_model}")
+            break
+        logging.warning(f"Processing {i+1}/{len(model_list)}-th model: {model_name}")
         if testing:
             model_name = args.test_model
             logging.warning(f"Testing model {model_name}")
@@ -140,16 +144,18 @@ def main():
         num_data = args.num_data
         train_loader, _ = load_imagenet(50000, 1, transform)
 
-        logging.warning(f"Calculating MLS for model {model_name}")
         if not args.skip_mls:
-            mls_avg, norm_mls_avg = eval_mls_adv(
+            logging.warning(f"Calculating MLS for model {model_name}")
+            mls_avg, norm_mls_avg, mls_quality = eval_mls_adv(
                 model, train_loader, args, nonlin, n_iters=num_data
             )
+            if not mls_quality:
+                logging.warning(f"MLS quality is not good for model {model_name}, skipping")
+                continue
             mls_list.append(mls_avg)
             norm_mls_list.append(norm_mls_avg)
         else:
             logging.warning(f"Skipping MLS calculation for model {model_name}")
-        
         logging.warning(f"Calculating Sharpness for model {model_name}")
         with torch.no_grad():
             # calculate the mls
@@ -165,29 +171,31 @@ def main():
 
             # calculate the sharpness
             # sharpness = eval_cov_sharpness(model, train_loader, rho=args.rho, n_iters=20)
-            sharpness = (
-                eval_average_sharpness(
-                    model,
-                    train_loader,
-                    torch.nn.MSELoss(reduction=args.reduction),
-                    n_iters=num_data,
-                    rho=args.rho,
-                    adaptive=not args.absolute_sharpness,
-                    nonlin=nonlin,
-                )
+            sharpness, sharpness_quality = eval_average_sharpness(
+                model,
+                train_loader,
+                torch.nn.MSELoss(reduction=args.reduction),
+                n_iters=num_data,
+                rho=args.rho,
+                adaptive=not args.absolute_sharpness,
+                nonlin=nonlin,
             )
             logging.warning(f"Sharpness for model {model_name}: {sharpness}")
+            if not sharpness_quality:
+                logging.warning(f"Sharpness quality is not good for model {model_name}, skipping")
+                continue
             sharpness_list.append(sharpness)
         if testing:
             assert False
+        lists = ["mls_list", "sharpness_list", "norm_mls_list"]
+        for i in range(len(lists)):
+            save_npy(
+                eval(lists[i]),
+                args.log,
+                lists[i] + args.run_id,
+            )
+        logging.warning(f"Saved data for model {model_name}")
 
-    lists = ["mls_list", "sharpness_list", "norm_mls_list"]
-    for i in range(len(lists)):
-        save_npy(
-            eval(lists[i]),
-            args.log,
-            lists[i] + args.run_id,
-        )
     correlation, _ = pearsonr(mls_list, sharpness_list)
     logging.warning(f"Pearson correlation between MLS and Sharpness: {correlation}")
     norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)
@@ -205,7 +213,20 @@ def main():
         fontsize=12,
         verticalalignment="top",
     )
-    savefig(args.log)
+    savefig(args.log, "norm_mls_vs_sharpness")
+    plt.figure()
+    plt.scatter(mls_list, sharpness_list)
+    plt.xlabel("MLS")
+    plt.ylabel("Adaptive Sharpness")
+    # plt.title("MLS vs Sharpness")
+    plt.annotate(
+        f"Pearson correlation: {correlation:.2f}",
+        xy=(0.05, 0.95),
+        xycoords="axes fraction",
+        fontsize=12,
+        verticalalignment="top",
+    )
+    savefig(args.log, "mls_vs_sharpness")
 
 
 if __name__ == "__main__":

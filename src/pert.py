@@ -68,7 +68,7 @@ def eval_average_sharpness(
     logging.info(f"Params: {param_count(model)}")
     logging.info(f"rho: {rho} samples: {n_iters}")
 
-    n_batches, avg_loss, avg_init_loss = 0, 0.0, 0.0
+    n_batches, loss_sum, init_loss_sum = 0, 0.0, 0.0
     sample_iters = n_iters
     pert_iters = 50
     with torch.no_grad():
@@ -79,7 +79,7 @@ def eval_average_sharpness(
 
             # Loss on the unperturbed model.
             init_loss = get_loss(model, loss_f, x, y)
-            avg_init_loss += init_loss
+            init_loss_sum += init_loss
 
             batch_loss = 0.0
             cur_loss_list = []
@@ -96,8 +96,9 @@ def eval_average_sharpness(
                 batch_loss += curr_loss
                 cur_loss_list.append(curr_loss)
             std = np.std(cur_loss_list)
-            required_iter = max(int(std/(rho*10)) ** 2, pert_iters)
-            logging.info(f"{required_iter=}")
+            required_iter = max(int(std / (rho * 10)) ** 2, pert_iters)
+            required_iter = min(required_iter, 400)
+            logging.warning(f"{required_iter=}")
             for _ in range(required_iter - pert_iters):
                 delta_dict = random_init_lw(
                     delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
@@ -114,17 +115,22 @@ def eval_average_sharpness(
             assert required_iter == len(
                 cur_loss_list
             ), f"{required_iter=} {len(cur_loss_list)=}"
-            avg_loss += batch_loss / required_iter
+            loss_sum += batch_loss / required_iter
             sharp_hist.append(batch_loss / required_iter - init_loss)
             logging.info(f"sharpness: {batch_loss / required_iter - init_loss}")
-    sharp_std = np.std(sharp_hist) * rho**2 / np.sqrt(n_batches)
+    sharp_std = np.std(sharp_hist) / (np.sqrt(n_batches) * rho**2)
     logging.warning(f"standard deviation of sharpness: {sharp_std}")
 
-    sharpness = (avg_loss - avg_init_loss) / (n_batches * rho**2)
+    sharpness = (loss_sum - init_loss_sum) / (n_batches * rho**2)
     logging.warning(f"Sharpness: {sharpness}")
-    return sharpness
+
+    high_quality = False
+    if abs(sharp_std / sharpness) < 0.1:
+        high_quality = True
+    return sharpness, high_quality
 
 
+# adversarial MLS
 def eval_mls_adv(
     model,
     train_loader,
@@ -168,7 +174,11 @@ def eval_mls_adv(
     logging.warning(f"standard deviation of Normalized MLS: {norm_std}")
     logging.warning(f"MLS for model: {mls_sum / n_iters}")
     logging.warning(f"Normalized MLS for model: {norm_mls_sum / n_iters}")
-    return mls_sum / n_iters, norm_mls_sum / n_iters
+
+    high_quality = False
+    if abs(std / (mls_sum / n_iters)) < 0.1:
+        high_quality = True
+    return mls_sum / n_iters, norm_mls_sum / n_iters, high_quality
 
 
 def eval_mls(
