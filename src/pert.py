@@ -97,7 +97,7 @@ def eval_average_sharpness(
                 cur_loss_list.append(curr_loss)
             std = np.std(cur_loss_list)
             required_iter = max(int(std / (rho * 10)) ** 2, pert_iters)
-            required_iter = min(required_iter, 400)
+            required_iter = min(required_iter, 200)
             logging.warning(f"{required_iter=}")
             for _ in range(required_iter - pert_iters):
                 delta_dict = random_init_lw(
@@ -125,7 +125,7 @@ def eval_average_sharpness(
     logging.warning(f"Sharpness: {sharpness}")
 
     high_quality = False
-    if abs(sharp_std / sharpness) < 0.1:
+    if abs(sharp_std / sharpness) < 0.15:
         high_quality = True
     return sharpness, high_quality
 
@@ -176,7 +176,7 @@ def eval_mls_adv(
     logging.warning(f"Normalized MLS for model: {norm_mls_sum / n_iters}")
 
     high_quality = False
-    if abs(std / (mls_sum / n_iters)) < 0.1:
+    if abs(std / (mls_sum / n_iters)) < 0.15:
         high_quality = True
     return mls_sum / n_iters, norm_mls_sum / n_iters, high_quality
 

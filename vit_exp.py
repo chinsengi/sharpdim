@@ -113,7 +113,9 @@ def main():
     testing = args.test
     for i, model_name in tqdm(enumerate(model_list)):
         if i >= args.max_num_model:
-            logging.warning(f"Reached maximum number of models to process: {args.max_num_model}")
+            logging.warning(
+                f"Reached maximum number of models to process: {args.max_num_model}"
+            )
             break
         logging.warning(f"Processing {i+1}/{len(model_list)}-th model: {model_name}")
         if testing:
@@ -150,8 +152,13 @@ def main():
                 model, train_loader, args, nonlin, n_iters=num_data
             )
             if not mls_quality:
-                logging.warning(f"MLS quality is not good for model {model_name}, skipping")
-                continue
+                logging.warning(
+                    f"MLS quality is not good for model {model_name}, skipping"
+                )
+                if testing:
+                    assert False
+                else:
+                    continue
             mls_list.append(mls_avg)
             norm_mls_list.append(norm_mls_avg)
         else:
@@ -182,8 +189,16 @@ def main():
             )
             logging.warning(f"Sharpness for model {model_name}: {sharpness}")
             if not sharpness_quality:
-                logging.warning(f"Sharpness quality is not good for model {model_name}, skipping")
-                continue
+                logging.warning(
+                    f"Sharpness quality is not good for model {model_name}, skipping"
+                )
+                if mls_quality:
+                    mls_list.pop()
+                    norm_mls_list.pop()
+                if testing:
+                    assert False
+                else:
+                    continue
             sharpness_list.append(sharpness)
         if testing:
             assert False
