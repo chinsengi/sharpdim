@@ -8,12 +8,12 @@ import torch.optim as optim
 import numpy as np
 
 
-def random_init_lw(delta_dict, rho, orig_param_dict, norm="l2", adaptive=False):
+def random_init_lw(delta_dict, rho, orig_param_dict, norm="l2", adaptive=False, device="cuda"):
     assert norm in ["l2", "linf"], f"Unknown perturbation model {norm}."
 
     for param in delta_dict:
         if norm == "l2":
-            delta_dict[param] = torch.randn_like(delta_dict[param]).cuda()
+            delta_dict[param] = torch.randn_like(delta_dict[param]).to(device)
         elif norm == "linf":
             delta_dict[param] = (
                 2 * torch.rand_like(delta_dict[param], device="cuda") - 1
@@ -40,6 +40,7 @@ def eval_average_sharpness(
     adaptive=False,
     norm="l2",
     nonlin=None,
+    device="cuda",
 ):
     """Average case sharpness with Gaussian noise ~ (0, rho)."""
 
@@ -75,7 +76,7 @@ def eval_average_sharpness(
         sharp_hist = []
         for _ in tqdm(range(sample_iters)):
             x, y = next(iter(dataloader))
-            x, y = x.cuda(), y.cuda()
+            x, y = x.to(device), y.to(device)
 
             # Loss on the unperturbed model.
             init_loss = get_loss(model, loss_f, x, y)
@@ -85,7 +86,7 @@ def eval_average_sharpness(
             cur_loss_list = []
             for _ in range(pert_iters):
                 delta_dict = random_init_lw(
-                    delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
+                    delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive, device=device
                 )
                 for (param_name, delta), (_, param) in zip(
                     delta_dict.items(), noisy_model.named_parameters()
@@ -101,7 +102,7 @@ def eval_average_sharpness(
             logging.warning(f"{required_iter=}")
             for _ in range(required_iter - pert_iters):
                 delta_dict = random_init_lw(
-                    delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive
+                    delta_dict, rho, orig_param_dict, norm=norm, adaptive=adaptive, device=device
                 )
                 for (param_name, delta), (_, param) in zip(
                     delta_dict.items(), noisy_model.named_parameters()
@@ -137,6 +138,7 @@ def eval_mls_adv(
     args,
     nonlin,
     n_iters=100,
+    device="cuda",
 ):
     epsilon = args.rho
 
@@ -145,25 +147,23 @@ def eval_mls_adv(
     mls_sum, norm_mls_sum = 0.0, 0.0
     for _ in tqdm(range(n_iters)):
         img, target = next(iter(train_loader))
-        img, target = img.to(args.device), target.to(args.device)
+        img, target = img.to(device), target.to(device)
         orig = model(img)
-        delta = torch.randn_like(img, requires_grad=True, device=args.device)
+        delta = torch.randn_like(img, requires_grad=True, device=device)
         # breakpoint()
         opt = optim.Adam([delta], lr=0.1)
         delta.data = delta.data * epsilon
         for _ in range(30):
-            # delta = delta * epsilon / torch.norm(delta.flatten(), p=2)
-            delta.data.clamp_(-epsilon, epsilon)
             pert = model(img + delta)
-            loss = -F.mse_loss(nonlin(orig), nonlin(pert), reduction="sum")
+            loss = -torch.norm(nonlin(orig) - nonlin(pert))/torch.norm(delta.flatten())
             opt.zero_grad()
             loss.backward()
             # breakpoint()
             opt.step()
-            delta.data.clamp_(-epsilon, epsilon)
             # logging.info(f"loss: {loss.cpu().item()}")
-        mls = -loss.cpu().item() / torch.norm(delta.flatten(), p=2).cpu().item()
-        norm_mls = mls * torch.norm(img.flatten()).cpu().item()
+            # logging.info(f"norm: {-torch.norm(nonlin(orig) - nonlin(pert))}")
+        mls = loss.cpu().item()**2
+        norm_mls = mls * torch.norm(img.flatten()).cpu().item()**2
         mls_hist.append(mls)
         norm_mls_hist.append(norm_mls)
         mls_sum = mls_sum + mls

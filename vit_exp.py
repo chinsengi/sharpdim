@@ -4,6 +4,7 @@ import logging
 import shutil
 from time import time
 import numpy as np
+from responses import start
 import timm
 import logging
 import os
@@ -56,7 +57,7 @@ def get_args():
     parser.add_argument("--test", action="store_true")
     parser.add_argument("--skip_mls", action="store_true")
     parser.add_argument("--test_model", type=str, default="gcvit_small.in1k")
-    parser.add_argument("--max_num_model", type=int, default=400)
+    parser.add_argument("--max_num_model", type=int, default=1000)
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.model, args.run_id)
@@ -106,11 +107,13 @@ def main():
     mls_list = []
     sharpness_list = []
     norm_mls_list = []
+    model_name_list = []
     if args.nonlinearity == "sigmoid":
         nonlin = F.sigmoid
     elif args.nonlinearity == "softmax":
         nonlin = nn.Softmax(dim=1)
     testing = args.test
+    start_time = time()
     for i, model_name in tqdm(enumerate(model_list)):
         if i >= args.max_num_model:
             logging.warning(
@@ -122,10 +125,14 @@ def main():
             model_name = args.test_model
             logging.warning(f"Testing model {model_name}")
         logging.warning(f"processing model {model_name}")
-        model = timm.create_model(
-            model_name,
-            pretrained=True,
-        )
+        try:
+            model = timm.create_model(
+                model_name,
+                pretrained=True,
+            )
+        except Exception as e:
+            logging.warning(f"Error in loading model {model_name}: {e}, skipping")
+            continue
         if not check_model_input(model):
             logging.warning(
                 f"Skipping model {model_name} as its input exceeds size 384*384"
@@ -199,10 +206,11 @@ def main():
                     assert False
                 else:
                     continue
-            sharpness_list.append(sharpness)
+        sharpness_list.append(sharpness)
+        model_name_list.append(model_name)
         if testing:
             assert False
-        lists = ["mls_list", "sharpness_list", "norm_mls_list"]
+        lists = ["mls_list", "sharpness_list", "norm_mls_list", "model_name_list"]
         for i in range(len(lists)):
             save_npy(
                 eval(lists[i]),
@@ -242,6 +250,9 @@ def main():
         verticalalignment="top",
     )
     savefig(args.log, "mls_vs_sharpness")
+    
+    end_time = time()
+    logging.warning(f"Total time taken: {end_time - start_time} seconds")
 
 
 if __name__ == "__main__":
