@@ -124,11 +124,17 @@ def eval_average_sharpness(
 
     sharpness = (loss_sum - init_loss_sum) / (n_batches * rho**2)
     logging.warning(f"Sharpness: {sharpness}")
-
+    
+    # w_norm = 0.
+    # for  _, param in model.named_parameters():
+        # w_norm += torch.norm(param).cpu().item()**2
     high_quality = False
+    # logging.warning(f"Weight-norm Sharpness: {np.sqrt(w_norm) * np.sqrt(sharpness)}")
     if abs(sharp_std / sharpness) < 0.15:
         high_quality = True
     return sharpness, high_quality
+    return sharpness, sharpness * w_norm, high_quality
+
 
 
 # adversarial MLS
