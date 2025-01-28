@@ -19,7 +19,6 @@ from .data import DataLoader, load_fmnist, load_cifar10, load_imagenet
 from .linalg import eigen_variance, eigen_hessian
 
 import logging
-logger = logging.getLogger(__name__)
 
 def use_gpu(gpu_id: int = 0):
     num_of_gpus = torch.cuda.device_count()

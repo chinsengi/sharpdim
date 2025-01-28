@@ -18,7 +18,7 @@ import argparse
 import math
 
 from src.utils import save_npy, savefig, use_gpu
-from src.pert import eval_average_sharpness, eval_cov_sharpness, eval_mls, eval_mls_adv
+from src.pert import eval_average_sharpness, eval_cov_sharpness, eval_iimls, eval_mls, eval_mls_adv
 from matplotlib import pyplot as plt
 from scipy.stats import pearsonr
 
@@ -120,7 +120,8 @@ def main():
                 f"Reached maximum number of models to process: {args.max_num_model}"
             )
             break
-        logging.warning(f"Processing {i+1}/{len(model_list)}-th model: {model_name}")
+        logging.warning(
+            f"Processing {i+1}/{len(model_list)}-th model: {model_name}")
         if testing:
             model_name = args.test_model
             logging.warning(f"Testing model {model_name}")
@@ -131,8 +132,10 @@ def main():
                 pretrained=True,
             )
         except Exception as e:
-            logging.warning(f"Error in loading model {model_name}: {e}, skipping")
+            logging.warning(
+                f"Error in loading model {model_name}: {e}, skipping")
             continue
+
         if not check_model_input(model):
             logging.warning(
                 f"Skipping model {model_name} as its input exceeds size 384*384"
@@ -154,20 +157,35 @@ def main():
         train_loader, _ = load_imagenet(50000, 1, transform)
 
         if not args.skip_mls:
-            logging.warning(f"Calculating MLS for model {model_name}")
-            mls_avg, norm_mls_avg, mls_quality = eval_mls_adv(
-                model, train_loader, args, nonlin, n_iters=num_data
+            # logging.warning(f"Calculating MLS for model {model_name}")
+            # mls_avg, norm_mls_avg, mls_quality = eval_mls_adv(
+            #     model, train_loader, args, nonlin, n_iters=num_data
+            # )
+            # if not mls_quality:
+            #     logging.warning(
+            #         f"MLS quality is not good for model {model_name}, skipping"
+            #     )
+            #     if testing:
+            #         assert False
+            #     else:
+            #         continue
+            # mls_list.append(mls_avg)
+            # norm_mls_list.append(norm_mls_avg)
+            
+            logging.warning(f"Calculating IIMLS for model {model_name}")
+            mls_avg, mls_quality = eval_iimls(
+                model, train_loader, args, nonlin, n_iters=num_data, device=args.device
             )
             if not mls_quality:
                 logging.warning(
-                    f"MLS quality is not good for model {model_name}, skipping"
+                    f"IIMLS quality is not good for model {model_name}, skipping"
                 )
                 if testing:
                     assert False
                 else:
                     continue
             mls_list.append(mls_avg)
-            norm_mls_list.append(norm_mls_avg)
+            # norm_mls_list.append(norm_iimls_avg)
         else:
             logging.warning(f"Skipping MLS calculation for model {model_name}")
         logging.warning(f"Calculating Sharpness for model {model_name}")
@@ -210,7 +228,8 @@ def main():
         model_name_list.append(model_name)
         if testing:
             assert False
-        lists = ["mls_list", "sharpness_list", "norm_mls_list", "model_name_list"]
+        lists = ["mls_list", "sharpness_list",
+                 "norm_mls_list", "model_name_list"]
         for i in range(len(lists)):
             save_npy(
                 eval(lists[i]),
@@ -220,7 +239,8 @@ def main():
         logging.warning(f"Saved data for model {model_name}")
 
     correlation, _ = pearsonr(mls_list, sharpness_list)
-    logging.warning(f"Pearson correlation between MLS and Sharpness: {correlation}")
+    logging.warning(
+        f"Pearson correlation between MLS and Sharpness: {correlation}")
     norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)
     logging.warning(
         f"Pearson correlation between Normalized MLS and Sharpness: {norm_correlation}"
@@ -250,7 +270,7 @@ def main():
         verticalalignment="top",
     )
     savefig(args.log, "mls_vs_sharpness")
-    
+
     end_time = time()
     logging.warning(f"Total time taken: {end_time - start_time} seconds")
 

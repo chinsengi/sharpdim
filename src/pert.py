@@ -91,7 +91,8 @@ def eval_average_sharpness(
                 for (param_name, delta), (_, param) in zip(
                     delta_dict.items(), noisy_model.named_parameters()
                 ):
-                    param.data = orig_param_dict[param_name] + delta_dict[param_name]
+                    param.data = orig_param_dict[param_name] + \
+                        delta_dict[param_name]
 
                 curr_loss = get_loss(noisy_model, loss_f, x, y)
                 batch_loss += curr_loss
@@ -107,7 +108,8 @@ def eval_average_sharpness(
                 for (param_name, delta), (_, param) in zip(
                     delta_dict.items(), noisy_model.named_parameters()
                 ):
-                    param.data = orig_param_dict[param_name] + delta_dict[param_name]
+                    param.data = orig_param_dict[param_name] + \
+                        delta_dict[param_name]
 
                 curr_loss = get_loss(noisy_model, loss_f, x, y)
                 batch_loss += curr_loss
@@ -118,23 +120,23 @@ def eval_average_sharpness(
             ), f"{required_iter=} {len(cur_loss_list)=}"
             loss_sum += batch_loss / required_iter
             sharp_hist.append(batch_loss / required_iter - init_loss)
-            logging.info(f"sharpness: {batch_loss / required_iter - init_loss}")
+            logging.info(
+                f"sharpness: {batch_loss / required_iter - init_loss}")
     sharp_std = np.std(sharp_hist) / (np.sqrt(n_batches) * rho**2)
     logging.warning(f"standard deviation of sharpness: {sharp_std}")
 
     sharpness = (loss_sum - init_loss_sum) / (n_batches * rho**2)
     logging.warning(f"Sharpness: {sharpness}")
-    
+
     # w_norm = 0.
     # for  _, param in model.named_parameters():
-        # w_norm += torch.norm(param).cpu().item()**2
+    # w_norm += torch.norm(param).cpu().item()**2
     high_quality = False
     # logging.warning(f"Weight-norm Sharpness: {np.sqrt(w_norm) * np.sqrt(sharpness)}")
     if abs(sharp_std / sharpness) < 0.15:
         high_quality = True
     return sharpness, high_quality
     return sharpness, sharpness * w_norm, high_quality
-
 
 
 # adversarial MLS
@@ -161,7 +163,8 @@ def eval_mls_adv(
         delta.data = delta.data * epsilon
         for _ in range(30):
             pert = model(img + delta)
-            loss = -torch.norm(nonlin(orig) - nonlin(pert))/torch.norm(delta.flatten())
+            loss = -torch.norm(nonlin(orig) - nonlin(pert)) / \
+                torch.norm(delta.flatten())
             opt.zero_grad()
             loss.backward()
             # breakpoint()
@@ -187,6 +190,47 @@ def eval_mls_adv(
     return mls_sum / n_iters, norm_mls_sum / n_iters, high_quality
 
 
+def jacobian_vector_product(model, x, nonlin):
+    with torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=True, enable_mem_efficient=False):
+        x.requires_grad_(True)
+        jvp = torch.autograd.functional.jvp(lambda x: nonlin(model(x)), x, v=x)[1]
+    return jvp
+
+
+def eval_iimls(model, train_loader, args, nonlin, n_iters=100, device="cuda"):
+    model.eval()
+    iimls_sum = 0.0
+    iimls_hist = []
+
+    for _ in tqdm(range(n_iters)):
+        x, _ = next(iter(train_loader))
+        x = x.to(device)
+
+        # Calculate jacobian_vector_product
+        jvp = jacobian_vector_product(model, x, nonlin)
+
+        # Calculate IIMLS
+        iimls = torch.sum(jvp ** 2 / torch.numel(x))
+
+        iimls_sum += iimls.cpu().item()
+        iimls_hist.append(iimls.cpu().item())
+        logging.info(f"IIMLS: {iimls.cpu().item()}")
+
+    # Calculate averages
+    avg_iimls = iimls_sum / n_iters
+
+
+    # Calculate standard deviations
+    iimls_std = torch.tensor(iimls_hist).std().item()
+    logging.warning(f"IIMLS for model: {avg_iimls}")
+    logging.warning(f"Standard deviation of IIMLS: {iimls_std}")
+
+    # Check if the estimation is high quality
+    high_quality = abs(iimls_std / avg_iimls) < 0.15
+
+    return avg_iimls, high_quality
+
+
 def eval_mls(
     model, train_loader, args, nonlin, model_name, n_iters=100, num_samples=256
 ):
@@ -201,7 +245,8 @@ def eval_mls(
         # jacobian(model, img) # This takes 17 minutes to run
         mls, norm_mls = 0.0, 0.0
         for _ in range(num_samples // 32):
-            noise = torch.randn(32, *(img.shape[1:])).to(args.device) * math.sqrt(alp)
+            noise = torch.randn(
+                32, *(img.shape[1:])).to(args.device) * math.sqrt(alp)
             out = model(img + noise)
             out = nonlin(out)
             cov = torch.cov(out.T) / alp
@@ -283,7 +328,8 @@ def eval_cov_sharpness(
             n_batches += 1
             cur_sharpness = torch.cov(output.T) / rho
             assert cur_sharpness.shape == (1000, 1000)
-            sharp_sum += torch.linalg.matrix_norm(cur_sharpness, ord="fro").cpu().item()
+            sharp_sum += torch.linalg.matrix_norm(
+                cur_sharpness, ord="fro").cpu().item()
 
     sharpness = sharp_sum / n_batches
 

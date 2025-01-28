@@ -57,7 +57,7 @@ def get_args():
     parser.add_argument("--test", action="store_true")
     parser.add_argument("--skip_mls", action="store_true")
     parser.add_argument("--test_model", type=str, default="gcvit_small.in1k")
-    parser.add_argument("--max_num_model", type=int, default=400)
+    parser.add_argument("--max_num_model", type=int, default=1000)
     args = parser.parse_args()
 
     args.log = os.path.join(args.run, args.model, args.run_id)
@@ -151,7 +151,7 @@ def process_model(model_name, device, args, nonlin, num_data, i):
         )
         return None
 
-    return mls_avg, norm_mls_avg, sharpness
+    return mls_avg, norm_mls_avg, sharpness, model_name
 
 
 # Main function to distribute the models across multiple GPUs
@@ -168,6 +168,7 @@ def main():
     ]  # List of available GPUs
     logging.warning(f"Devices: {devices}")
     model_list = timm.list_models(f"*{args.model}*", pretrained=True)
+    logging.warning(f"Number of models found: {len(model_list)}")
 
     start_time = time()
 
@@ -208,56 +209,64 @@ def main():
         mls_list = []
         norm_mls_list = []
         sharpness_list = []
+        model_name_list = []
 
         for result in results:
             res = result.get()
             if res:
-                mls_avg, norm_mls_avg, sharpness = res
+                mls_avg, norm_mls_avg, sharpness, model_name = res
                 if mls_avg is not None:
                     mls_list.append(mls_avg)
                     norm_mls_list.append(norm_mls_avg)
                 sharpness_list.append(sharpness)
+                model_name_list.append(model_name)
 
             # Save the results
-            save_npy(mls_list, args.log, "mls_list" + args.run_id)
-            save_npy(sharpness_list, args.log, "sharpness_list" + args.run_id)
-            save_npy(norm_mls_list, args.log, "norm_mls_list" + args.run_id)
+            lists = ["mls_list", "sharpness_list", "norm_mls_list", "model_name_list"]
+            for i in range(len(lists)):
+                save_npy(
+                    eval(lists[i]),
+                    args.log,
+                    lists[i] + args.run_id,
+                )
+            logging.warning(f"Saved data for models")
 
-    correlation, _ = pearsonr(mls_list, sharpness_list)
-    logging.warning(f"Pearson correlation between MLS and Sharpness: {correlation}")
-    norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)
-    logging.warning(
-        f"Pearson correlation between Normalized MLS and Sharpness: {norm_correlation}"
-    )
-    plt.scatter(norm_mls_list, sharpness_list)
-    plt.xlabel("Normalized MLS")
-    plt.ylabel("Adaptive Sharpness")
-    # plt.title("MLS vs Sharpness")
-    plt.annotate(
-        f"Pearson correlation: {norm_correlation:.2f}",
-        xy=(0.05, 0.95),
-        xycoords="axes fraction",
-        fontsize=12,
-        verticalalignment="top",
-    )
-    savefig(args.log, "norm_mls_vs_sharpness")
-    plt.figure()
-    plt.scatter(mls_list, sharpness_list)
-    plt.xlabel("MLS")
-    plt.ylabel("Adaptive Sharpness")
-    # plt.title("MLS vs Sharpness")
-    plt.annotate(
-        f"Pearson correlation: {correlation:.2f}",
-        xy=(0.05, 0.95),
-        xycoords="axes fraction",
-        fontsize=12,
-        verticalalignment="top",
-    )
-    savefig(args.log, "mls_vs_sharpness")
-    end_time = time()
-    logging.warning(f"Time taken: {end_time - start_time} seconds")
+        correlation, _ = pearsonr(mls_list, sharpness_list)
+        logging.warning(f"Pearson correlation between MLS and Sharpness: {correlation}")
+        norm_correlation, _ = pearsonr(norm_mls_list, sharpness_list)
+        logging.warning(
+            f"Pearson correlation between Normalized MLS and Sharpness: {norm_correlation}"
+        )
+        plt.scatter(norm_mls_list, sharpness_list)
+        plt.xlabel("Normalized MLS")
+        plt.ylabel("Adaptive Sharpness")
+        # plt.title("MLS vs Sharpness")
+        plt.annotate(
+            f"Pearson correlation: {norm_correlation:.2f}",
+            xy=(0.05, 0.95),
+            xycoords="axes fraction",
+            fontsize=12,
+            verticalalignment="top",
+        )
+        savefig(args.log, "norm_mls_vs_sharpness")
+        plt.figure()
+        plt.scatter(mls_list, sharpness_list)
+        plt.xlabel("MLS")
+        plt.ylabel("Adaptive Sharpness")
+        # plt.title("MLS vs Sharpness")
+        plt.annotate(
+            f"Pearson correlation: {correlation:.2f}",
+            xy=(0.05, 0.95),
+            xycoords="axes fraction",
+            fontsize=12,
+            verticalalignment="top",
+        )
+        savefig(args.log, "mls_vs_sharpness")
+        end_time = time()
+        logging.warning(f"Total time taken: {end_time - start_time} seconds")
 
 
 if __name__ == "__main__":
+    os.environ["HOME"] = "."
     mp.set_start_method("spawn")  # Ensures proper GPU initialization for each process
     main()

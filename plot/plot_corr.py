@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils import create_dir, savefig
 import pandas as pd
 import seaborn as sns
@@ -7,6 +9,13 @@ import json
 from scipy.signal import savgol_filter
 from scipy.stats import pearsonr
 
+import logging
+logger = logging.getLogger(__name__)
+formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
 
 def smooth(x, window_size, polyorder=3):
     return savgol_filter(x, window_size, polyorder)
@@ -44,7 +53,7 @@ if __name__ == "__main__":
         "rel_flatness",
     ]
     for run_id in run_ids:
-        if run_id == 427:
+        if run_id in [427, 442, 447]:
             continue
         try:
             with open(f"run/{dataset}/{run_id}/config.json") as f:
@@ -74,20 +83,21 @@ if __name__ == "__main__":
             # result = stats.pearsonr(data[list_name], data["test_loss"])
             stat[list_name].append(np.mean(data[list_name]))
             if list_name == "dim" and np.isnan(data[list_name]):
+                breakpoint()
         # stat["INMLS"] = [] if stat.get("INMLS") is None else stat["INMLS"]
         # stat["INMLS"].append(np.mean(data['sharpness']*data['W']))
-        stat["gen gap"] = [] if stat.get("gen gap") is None else stat["gen gap"]
+        stat["gen gap"] = stat.get("gen gap", [])
         stat["gen gap"].append(np.mean(-data["test_acc"] + data["acc"]))
         # stat["gen gap"].append(np.mean(data["test_loss"] - data["loss"]))
         # stat["gen gap"].append(np.mean(data["test_acc"]))
 
         # stat["C"] = [] if stat.get("C") is None else stat["C"]
-        stat["D"] = [] if stat.get("D") is None else stat["D"]
+        stat["D"] = stat.get("D", [])
         # stat["C"].append(np.mean(data["gradW"]*data['quad']))
         stat["D"].append(np.mean(data["sharpness"] * data["W0"] * data["quad"]))
         # stat["D"].append(np.mean(data["sharpness"]*data["W0"]))
 
-        stat["bound"] = [] if stat.get("bound") is None else stat["bound"]
+        stat["bound"] = stat.get("bound", [])
         stat["relative flatness"] = (
             [] if stat.get("relative flatness") is None else stat["relative flatness"]
         )
